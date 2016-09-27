@@ -65,7 +65,8 @@ uint8_t* build_tcp_header( char* data, uint16_t len ) {
 }
 
 
-int send_packet( uint32_t src, uint32_t dest, uint8_t ttl, char* data, uint16_t len_data ) {
+int send_packet( uint32_t src, uint32_t dest, uint8_t ttl_high, uint8_t ttl_low, char* data, uint16_t len_data ) {
+	uint8_t ttl = rand() % ( ttl_high - ttl_low + 1 ) + ttl_low;
 	uint8_t* ip_header = build_ip_header( src, dest, ttl, len_data );
 	uint8_t* tcp_header = build_tcp_header( data, len_data );
 	int fd = socket( PF_INET, SOCK_RAW, IPPROTO_RAW );
@@ -118,6 +119,12 @@ fail1:
 	free( ip_header );
 	free( tcp_header );
 	return -1;
+}
+
+uint32_t ip_from_comp( uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3 ) {
+	uint32_t ret = 0;
+	ret = (c0 << 24) + (c1 << 16) + (c2 << 8) + (c3 << 8);
+	return ret;
 }
 
 

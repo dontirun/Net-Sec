@@ -12,15 +12,15 @@ int main( ) {
 	uint32_t src  = 0xdeadbeef;
 	
 	// 130.215.217.139
-	uint32_t dest = 0x82d7d98b;
+	uint32_t dest = 0xdecea5ed;
 
-	char* data = "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nUser-Agent: curl/1.0\r\nConnection: close\r\n\r\n";
+	char* data = "GET / HTTP/1.1\r\nnConnection: close\r\n\r\n";
 	uint16_t len_data = strlen( data );
-	uint8_t ttl = 0xFF;
+	uint8_t ttl_high = 0xFF;
+	uint8_t ttl_low = 0x00;
 
-int send_packet( uint32_t src, uint32_t dest, uint8_t ttl, char* data, uint16_t len_data );
 	for( int i = 0; i < 100; i++ ) {
-		send_packet( src, dest, ttl, data, len_data );
+		send_packet( src, dest, ttl_high, ttl_low, data, len_data );
 	}
 	return 0;
 
