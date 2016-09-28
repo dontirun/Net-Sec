@@ -1,6 +1,9 @@
 //Arun Donti Enhanced Client
 //This code has been adapted from :
 //http://www.tcpdump.org/sniffex.c
+
+// to compile
+//gcc FinalProjectServerListener.c -o test -lm -lpcap
 #define SIZE_ETHERNET 14
 
 #include <stdio.h>
@@ -11,6 +14,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <math.h>
 #include <pcap.h>
 
 
@@ -86,38 +90,52 @@ int main(int argc, char *argv[]) {
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 	{
 
+		FILE *fp;
+		char buff[50];
+		fp = fopen("hopsByIP.txt","a+");
 		static int count = 1;                   // packet counter 
 		
-		// declare pointers to packet headers 
-	//	const struct sniff_ethernet *ethernet;  // The ethernet header [1] 
-		const struct sniff_ip *ip;              // The IP header 
-	//	const struct sniff_tcp *tcp;            // The TCP header 
-		const char *payload;                    // Packet payload 
 
-		int size_ip;
-	//	int size_tcp;
-		int size_payload;
+		const struct sniff_ip *ip;              // The IP header 
+
 		
 		printf("\nPacket number %d:\n", count);
 		count++;
-		
-		// define ethernet header 
-	//	ethernet = (struct sniff_ethernet*)(packet);
-		
-		// define/compute ip header offset 
-		/*
 		ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
-		size_ip = IP_HL(ip)*4;
-		if (size_ip < 20) {
-			printf("   * Invalid IP header length: %u bytes\n", size_ip);
-			return;
+
+		// the file already contains this IP
+
+		int getHops = NULL;
+		while(fgets(buff, sizeof(buff), fp) != NULL){
+			if(strstr(buff,inet_ntoa(ip->ip_src))){
+				fgets(buff, sizeof(buff), fp);
+				getHops = atoi(buff);
+				printf("%d hops listed in list\n ",getHops);
+				break;
+			}
 		}
-		*/
+		if(getHops != NULL){
+			// let through if reasonably close hop count
+			int hopEQ = ceil((double)getHops *.05) + 1;
+			printf("hopEQ is %d\n", hopEQ);
+			printf("ttl on incomming packet is %d\n", (int)(ip->ip_ttl));
 
-		// print source and destination IP addresses 
-		printf("       From: %s\n", inet_ntoa(ip->ip_src));
-		printf("         the ttl is: %d\n", (ip->ip_ttl));
+			if ((int)(ip->ip_ttl) <= getHops + hopEQ && (int)(ip->ip_ttl) >= getHops - hopEQ){
+				printf("ttl difference is okay for %s\n",inet_ntoa(ip->ip_src));
+			}
+			// blacklist this ip 
+			else{
+				printf("BLACKLIST %s\n",inet_ntoa(ip->ip_src));
 
+			}
+		}
+		
+		// print source IP  and the TTL if it hasn't connected before' 
+		else{
+			fprintf(fp,"\n%s \n%d", inet_ntoa(ip->ip_src), (ip->ip_ttl));
+		}
+
+	fclose(fp);
 	return;
 	}
 
