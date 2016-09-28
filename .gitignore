@@ -1,2 +1,3 @@
-
+*.o
+client/main
 .DS_Store
