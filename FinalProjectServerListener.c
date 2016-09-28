@@ -32,8 +32,6 @@ struct sniff_ip {
 };
 
 
-static const int MAXPENDING = 5; // Maximum outstanding connection requests
-
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
 int main(int argc, char *argv[]) {
@@ -107,18 +105,19 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	//	ethernet = (struct sniff_ethernet*)(packet);
 		
 		// define/compute ip header offset 
+		/*
 		ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
 		size_ip = IP_HL(ip)*4;
 		if (size_ip < 20) {
 			printf("   * Invalid IP header length: %u bytes\n", size_ip);
 			return;
 		}
+		*/
 
 		// print source and destination IP addresses 
 		printf("       From: %s\n", inet_ntoa(ip->ip_src));
-		printf("         the ttl is: %s\n", inet_ntoa(ip->ip_ttl));
+		printf("         the ttl is: %d\n", (ip->ip_ttl));
 
 	return;
 	}
 
-}
