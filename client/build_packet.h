@@ -1,6 +1,8 @@
 #ifndef BUILD_PACKET_H
 #define BUILD_PACKET_H
 
+#include <stdint.h>
+
 #define IP_HEADER_BYTES 20
 #define TCP_PROTOCOL 6
 
