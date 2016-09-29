@@ -6,8 +6,6 @@
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data) {
-	//This is the packet handler
-	//u_int32_t id = print_pkt(nfa);
 	printf("packet received\n");
 	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
