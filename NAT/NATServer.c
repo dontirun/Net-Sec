@@ -102,6 +102,14 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+int insertMapping(char *ip) {
+
+
+    
+
+    return 0;
+}
+
 void term(int signum) {
     quit = 1;
 }
