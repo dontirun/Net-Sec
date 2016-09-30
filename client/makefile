@@ -19,5 +19,3 @@ $(EXE): $(OBJS)
 clean:
 	rm $(OBJS)
 	rm $(EXE)
-
-
