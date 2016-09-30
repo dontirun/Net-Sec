@@ -10,15 +10,20 @@
 // Function Prototypes
 void printUsage();
 void term();
+int insertMapping(char *ip);
 
 volatile sig_atomic_t quit = 0;
 
+/**
+ * Run in a continuous loop and await commands from the DNS
+ */
 int main(int argc, char **argv) {
 
     char hostName[1024], message[1024];
     int portNum,sockfd, accSock;
     int messageSize;
     struct hostent *host;
+    struct in_addr *hostIP;
     struct sockaddr_in servAddr, cliAddr;
     socklen_t cliSize;
    
@@ -50,11 +55,15 @@ int main(int argc, char **argv) {
         perror("ERROR - Cannot bind to port\n");
         exit(1);
     }
-
+    
     gethostname(hostName, 1023);
     host = gethostbyname(hostName);
+    hostIP = host->h_addr;
+    
+    insertMapping("192.168.1.1");
 
-    printf("Server is listening at %s:%d\n",host->h_name, portNum); 
+
+    printf("Server is listening at %s:%d\n", inet_ntoa(hostIP), portNum); 
 
     while(!quit) {
         // Recieve Requests
@@ -102,18 +111,43 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+/**
+ * Input:
+ *     IP address given by the DNS, corresponds to the IP prefix of the ISP
+ * Output:
+ *     0 if mapping was created succesfully, 1 if failure
+ */
 int insertMapping(char *ip) {
 
-
+    // Form iptable command
+    char *command;
+    asprintf(&command, "sudo iptables -t nat -A INPUT -p tcp --dport http -s  %s -m state --state NEW -j ACCEPT", ip);
+    system(command);
     
 
     return 0;
 }
 
+/**
+ * Input: 
+ *     Int value of the termination type given
+ * Output: 
+ *     None
+ * 
+ * Set the quit flag to 1 when the user chooses to terminate the program.
+ */
 void term(int signum) {
     quit = 1;
 }
 
+/**
+ * Input:
+ *     None
+ * Output: 
+ *     None
+ *
+ * Print the proper usage of the program.
+ */
 void printUsage() {
     printf("\nUsage:\n");
     printf("    ./http_server port_number\n");
