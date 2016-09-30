@@ -7,7 +7,7 @@
 #include <netdb.h>
 #include <sys/time.h>
 
-#define MAXRESPONSESIZE 20
+#define MAXRESPONSESIZE 21
 
 // Flags
 int PFLAG = 0;
@@ -102,17 +102,14 @@ int main(int argc, char** argv) {
     char response[MAXRESPONSESIZE];
     memset(response, 0, sizeof(response));
     do {
-        bytes = read(sockfd, response, 1024);
-        gettimeofday(&stopTime, NULL); // Stop Timer
-        int i = 0;
-        if(response[0] == 13) {
-            i = 1;
-        }
-        for(; i < MAXRESPONSESIZE; i++) {
-            if(response[i] == '\0')
+        bytes = read(sockfd, response, MAXRESPONSESIZE);
+	gettimeofday(&stopTime, NULL); // Stop Timer
+        int i;
+        for(i = 0; i < MAXRESPONSESIZE; i++) {
+	    if(response[i] == '\0')
                 break;
-            printf("%c", response[i]);
         }
+	printf("%s\n", response);
         memset(response, 0, sizeof(response));
         if(bytes < 0) {
             perror("ERROR - Cannot read from Socket\n");

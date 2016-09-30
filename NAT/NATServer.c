@@ -6,6 +6,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <signal.h>
+#include <arpa/inet.h>
 
 // Function Prototypes
 void printUsage();
@@ -60,10 +61,9 @@ int main(int argc, char **argv) {
     host = gethostbyname(hostName);
     hostIP = host->h_addr;
     
-    insertMapping("192.168.1.1");
+    //insertMapping("192.168.1.1");
 
-
-    printf("Server is listening at %s:%d\n", inet_ntoa(hostIP), portNum); 
+    printf("Server is listening at %s:%d\n", inet_ntoa(*hostIP), portNum); 
 
     while(!quit) {
         // Recieve Requests
@@ -90,10 +90,9 @@ int main(int argc, char **argv) {
         int sent = 0;
         int bytes = 0;
         char *resp;
-        asprintf(&resp, "FIN;0.0.0.0");
-        int respSize = 20;
+        int respSize = asprintf(&resp, "FIN;0.0.0.0") + 1;
         do {
-            bytes = send(accSock, resp+sent, respSize-sent, MSG_NOSIGNAL);
+	    bytes = send(accSock, resp+sent, respSize-sent, MSG_NOSIGNAL);
             if(bytes < 0) {
                 exit(1);
             }
