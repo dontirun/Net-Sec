@@ -11,15 +11,7 @@
 #include <netdb.h>
 
 #include "build_packet.h"
-
-void print_header( uint8_t* header, size_t len ) {
-	for( size_t i = 0; i < len; i++ ) {
-		printf( "%02x ", header[i] & 0xff );
-		if( i % 4 == 3 ) {
-			printf( "\n" );
-		}
-	}
-}
+#include "dnsutils.h"
 
 uint8_t* build_ip_header( uint32_t src, uint32_t dest, uint8_t ttl, uint16_t len ) {
 	uint8_t* bheader = calloc( IP_HEADER_BYTES, sizeof( *bheader ) );

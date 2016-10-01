@@ -14,10 +14,8 @@
 
 int main( int argc, char** argv ) {
 
-	//10.10.152.49
 	uint32_t src  = 0xdeadbeef;
 	
-	// 130.215.217.139
 	uint32_t dest = 0xdecea5ed;
 
 	char* data = "GET / HTTP/1.1\r\nnConnection: close\r\n\r\n";
@@ -29,17 +27,16 @@ int main( int argc, char** argv ) {
 		send_packet( src, dest, ttl_high, ttl_low, data, len_data );
 	}
 
-
 	if( argc < 2 ) {
 		return -1;
 	}
 
 	//Get the hostname from the terminal
 	//Now get the ip of this hostname , A record
-	struct RES_RECORD* resp = ngethostbyname( (unsigned char*)argv[0] , T_A);
-	printf( "Name : %s\n", resp->name );
-	printf( "\tTTL : %u\n", resp->resource->ttl );
-	printf( "\tIPv4 address : %x\n", ntohl( *((uint32_t*)resp->rdata ) ) );
+	uint32_t resp = resolve( (unsigned char*)argv[1] );
+	struct in_addr tmp = { resp };
+	printf( "\tIPv4 address : %s\n", inet_ntoa( tmp ) );
+	free_table( );
 
 	return 0;
 }
