@@ -1,19 +1,27 @@
+// Standard libraries
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+
+// Network Imports
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <signal.h>
 #include <arpa/inet.h>
+
+// Multithreaded Imports
+#include <pthread.h>
 
 // Function Prototypes
 void printUsage();
 void term();
 int insertMapping(char *ip);
+int send_all(char *message, int messageSize);
 
 volatile sig_atomic_t quit = 0;
+
 
 /**
  * Run in a continuous loop and await commands from the DNS
@@ -57,12 +65,12 @@ int main(int argc, char **argv) {
         exit(1);
     }
     
+    // Get the IP of the host
     gethostname(hostName, 1023);
     host = gethostbyname(hostName);
     hostIP = host->h_addr;
     
-    //insertMapping("192.168.1.1");
-
+    // Print the IP and the listening port on the server
     printf("Server is listening at %s:%d\n", inet_ntoa(*hostIP), portNum); 
 
     while(!quit) {
@@ -87,19 +95,9 @@ int main(int argc, char **argv) {
 	printf("%s\n", command);
 
         // Send Response
-        int sent = 0;
-        int bytes = 0;
         char *resp;
         int respSize = asprintf(&resp, "FIN;0.0.0.0") + 1;
-        do {
-	    bytes = send(accSock, resp+sent, respSize-sent, MSG_NOSIGNAL);
-            if(bytes < 0) {
-                exit(1);
-            }
-            if(bytes == 0)
-                break;
-            sent += bytes;
-        } while(sent < respSize);
+        send_all(resp, respSize);
     }
     printf("Shutting Down Server...\n");
 
@@ -108,6 +106,10 @@ int main(int argc, char **argv) {
     close(accSock);
 
     return 0;
+}
+
+void handle_request(void *request) {
+    
 }
 
 /**
@@ -121,8 +123,55 @@ int insertMapping(char *ip) {
     // Form iptable command
     char *command;
     asprintf(&command, "sudo iptables -t nat -A INPUT -p tcp --dport http -s  %s -m state --state NEW -j ACCEPT", ip);
-    system(command);
+
+    // Execute command
+    int result = system(command);
+
+    // Check command executed successfully
+    if(result < 0) {
+
+    }
+
+    // Return 
     
+
+    return 0;
+}
+
+/**
+ * Input:
+ *     Pointer to an uninitialized character pointer
+ * Output:
+ *     None
+ *
+ * Read the message from the socket if there is one
+ */
+int recv_all(char **message) {
+
+}
+
+/**
+ * Input:
+ *     Pointer to a character array
+ * Output:
+ *     0 if send was successful, 1 otherwise
+ *
+ * Send the given message
+ */
+int send_all(char *message, int messageSize) {
+    int sent = 0;
+    int bytes = 0;
+    char *resp;
+    int respSize = asprintf(&resp, "FIN;0.0.0.0") + 1
+    do {
+        bytes = send(accSock, resp+sent, respSize-sent, MSG_NOSIGNAL);
+        if(bytes < 0) {
+            exit(1);
+        }
+        if(bytes == 0)
+            break;
+        sent += bytes;
+    } while(sent < respSize);
 
     return 0;
 }
