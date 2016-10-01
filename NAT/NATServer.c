@@ -1,8 +1,10 @@
 // Standard libraries
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include "LinkedList.h"
 
 // Network Imports
 #include <sys/types.h>
@@ -14,11 +16,14 @@
 // Multithreaded Imports
 #include <pthread.h>
 
+#define MAXMESSAGESIZE 21
+
 // Function Prototypes
 void printUsage();
 void term();
 int insertMapping(char *ip);
-int send_all(char *message, int messageSize);
+int send_all(char *message, int messageSize, int socket);
+int recv_all(char **message, int socket);
 
 volatile sig_atomic_t quit = 0;
 
@@ -28,13 +33,14 @@ volatile sig_atomic_t quit = 0;
  */
 int main(int argc, char **argv) {
 
-    char hostName[1024], message[1024];
-    int portNum,sockfd, accSock;
-    int messageSize;
+    char hostName[1024];
+    int portNum, sockfd, cliSock;
     struct hostent *host;
     struct in_addr *hostIP;
     struct sockaddr_in servAddr, cliAddr;
     socklen_t cliSize;
+
+    pthread_t *activeThreads;    
    
     struct sigaction action;
     memset(&action, 0, sizeof(struct sigaction));
@@ -68,42 +74,40 @@ int main(int argc, char **argv) {
     // Get the IP of the host
     gethostname(hostName, 1023);
     host = gethostbyname(hostName);
-    hostIP = host->h_addr;
+    hostIP = (struct in_addr *)host->h_addr;
     
     // Print the IP and the listening port on the server
     printf("Server is listening at %s:%d\n", inet_ntoa(*hostIP), portNum); 
 
+    // Establish connection between NAT and DNS
+    listen(sockfd, 10);
+    cliSize = sizeof(cliAddr);     
+    cliSock = accept(sockfd, (struct sockaddr *)&cliAddr, &cliSize);
+    if(cliSock < 0) {
+        perror("Error - Cannot accept client\n");
+        exit(1);
+    }
+
     while(!quit) {
         // Recieve Requests
-        listen(sockfd, 10);
-        cliSize = sizeof(cliAddr);     
-        accSock = accept(sockfd, (struct sockaddr *)&cliAddr, &cliSize);
-        if(accSock < 0) {
-            perror("Error - Cannot accept client\n");
-            continue;
-        }
-        memset(message, 0, 1024);
-        messageSize = read(accSock, message, 1023);
-        if(messageSize < 0) {
-            perror("Error - Cannot read from socket\n");
-            continue;
-        }
-        char *messagePtr = message;
         char *command = malloc(3);
-	char *ip = malloc(15);
+	    char *ip = malloc(15);
+        char *messagePtr = NULL;
+        recv_all(&messagePtr, cliSock);
         sscanf(messagePtr, "%s;%s", command, ip);
-	printf("%s\n", command);
+    	printf("%s\n", command);
 
         // Send Response
         char *resp;
         int respSize = asprintf(&resp, "FIN;0.0.0.0") + 1;
-        send_all(resp, respSize);
+        send_all(resp, respSize, cliSock);
     }
+    
     printf("Shutting Down Server...\n");
 
     // Close Sockets
     close(sockfd);
-    close(accSock);
+    close(cliSock);
 
     return 0;
 }
@@ -140,31 +144,48 @@ int insertMapping(char *ip) {
 
 /**
  * Input:
- *     Pointer to an uninitialized character pointer
+ *     message - Double pointer to an uninitialized character pointer
+ *     socket - Communication socket between NAT and DNS
  * Output:
- *     None
+ *     Return 0 if succesful or 1 otherwise.
  *
  * Read the message from the socket if there is one
  */
-int recv_all(char **message) {
+int recv_all(char **message, int socket) {
+    // Check if the message pointer has not been allocated
+    if(*message == NULL) {
+        *message = malloc(MAXMESSAGESIZE);
+    }
+
+    // Read in the message
+    memset(*message, 0, MAXMESSAGESIZE);
+    int messageSize = read(socket, *message, MAXMESSAGESIZE - 1);
+    if(messageSize < 0) {
+        perror("Error - Cannot read from socket\n");
+        return 1;
+    }
+    
+    return 0;
 
 }
 
 /**
  * Input:
- *     Pointer to a character array
+ *     message - Pointer to a character array
+ *     messageSize - Size of the message
+ *     socket - communication socket
  * Output:
  *     0 if send was successful, 1 otherwise
  *
  * Send the given message
  */
-int send_all(char *message, int messageSize) {
+int send_all(char *message, int messageSize, int socket) {
     int sent = 0;
     int bytes = 0;
     char *resp;
-    int respSize = asprintf(&resp, "FIN;0.0.0.0") + 1
+    int respSize = asprintf(&resp, "FIN;0.0.0.0") + 1;
     do {
-        bytes = send(accSock, resp+sent, respSize-sent, MSG_NOSIGNAL);
+        bytes = send(socket, resp+sent, respSize-sent, MSG_NOSIGNAL);
         if(bytes < 0) {
             exit(1);
         }
