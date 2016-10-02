@@ -3,7 +3,7 @@
 //http://www.tcpdump.org/sniffex.c
 
 // to compile
-//gcc FinalProjectServerListener.c -o test -lm -lpcap
+//gcc -m32 FinalProjectServerListener.c -o test -lm -lpcap
 #define SIZE_ETHERNET 14
 
 #include <stdio.h>
@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <math.h>
@@ -48,6 +49,22 @@ typedef struct IPhop IPhop;
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
+void DieWithUserMessage(const char *msg, const char *detail) {
+	fputs(msg, stderr);
+	fputs(": ", stderr);
+	fputs(detail, stderr);
+	fputc('\n', stderr);
+	exit(1);
+}
+
+void DieWithSystemMessage(const char *msg) {
+	perror(msg);
+	exit(1);
+}
+
+//Creating a stream socket using TCP
+int sock;
+
 int main(int argc, char *argv[]) {
 
 	pcap_t *handle;			// Session handle 
@@ -60,6 +77,31 @@ int main(int argc, char *argv[]) {
 	struct pcap_pkthdr header;	// The header that pcap gives us
 	const u_char *packet;		// The actual packet 
 
+	//private ip for NAT
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	char* natIP = "10.4.11.3";
+	// Establish connection with NAT
+	// Constructing the server address struct
+	struct sockaddr_in servAddr; // server address
+	memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
+	servAddr.sin_family = AF_INET;// IPv4 address family
+	// Convert address
+	int rtnVal = inet_pton(AF_INET, natIP, &servAddr.sin_addr.s_addr);
+	if (rtnVal == 0){
+		DieWithUserMessage("inet_pton() failed", "invalid address string");
+	}
+	else if (rtnVal < 0){
+		DieWithSystemMessage("inet_pton() failed");
+	}
+	in_port_t servPort = 5002;
+	servAddr.sin_port = htons(servPort); //Local port
+
+	// Establish the connection to the NAT
+	if (connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0)
+	DieWithSystemMessage("connect() failed");
+
+
+	// libpcap stuff
 	dev = pcap_lookupdev(errbuf);
 
 	if (dev == NULL) {
@@ -135,6 +177,20 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		// blacklist this ip , add SERVER NAT communication for blacklist
 		else{
 			printf("BLACKLIST %s\n",inet_ntoa(ip->ip_src));
+			char banCommand[20]; 
+			strcat(banCommand,"BAN;");
+			strcat(banCommand, inet_ntoa(ip->ip_src));
+			ssize_t banLength = strlen(banCommand);
+
+			// Send the string to the server
+			ssize_t numBytes = send(sock, banCommand, banLength, 0);
+			if (numBytes < 0){
+				DieWithSystemMessage("send() failed");
+			}
+			else if (numBytes != banLength){
+				DieWithUserMessage("send()", "sent unexpected number of bytes");
+			}
+
 
 		}
 	}
