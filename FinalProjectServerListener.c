@@ -176,7 +176,9 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		// blacklist this ip , add SERVER NAT communication for blacklist
 		else{
 			printf("BLACKLIST %s\n",inet_ntoa(ip->ip_src));
-			char* banCommand ="BAN " + inet_ntoa(ip->ip_src);
+			char[20] banCommand; 
+			strcat(banCommand,"BAN ");
+			strcat(banCommand, inet_ntoa(ip->ip_src));
 			ssize_t banLength = strlen(banCommand);
 
 			// Send the string to the server
