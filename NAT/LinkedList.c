@@ -46,14 +46,18 @@ void insertElement(LinkedList *list, void *newElement) {
         // List is empty
         list->head = node;
         list->tail = node;
+        node->next = node;
+        node->prev = node;
     } else {
         // Add to end of list
+        node->prev = list->tail;
+        node->next = list->head;
         list->tail->next = node;
         list->head->prev = node;
         list->tail = node;
     }
 
-    list->size += 1;
+    list->size = list->size + 1;
 }
 
 /**
@@ -98,6 +102,31 @@ void* removeElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *e
 /**
  * Input:
  *     list - Pointer to the linked list
+ * Output:
+ *     pointer to the value of the first node
+ *
+ * Remove and return the head of the list or NULL if list is empty
+ */
+void* popElement(LinkedList *list) {
+    // Get the head of the list
+    Node *head = list->head;
+
+    if(head != NULL) {
+        list->head = head->next;
+        if(head->next != NULL) {
+           head->next->prev = list->tail;
+        }
+        list->tail->prev = head->next;
+        list->size = list->size - 1;
+        return head->elm;
+    }
+
+    return NULL;
+}
+
+/**
+ * Input:
+ *     list - Pointer to the linked list
  *     printElm - Callback to print the value correctly
  * Output:
  *     None
@@ -107,11 +136,14 @@ void* removeElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *e
 void printList(LinkedList *list, void(*printElm)(void *elm)) {
     // Get the head of the list
     Node *head = list->head;
+    int i = list->size;
 
     // Iterate through the list
-    while(head != NULL) {
+    while(head != NULL && i != 0) {
         printElm(head->elm);      
         head = head->next;
+
+        i--;
     }
 }
 

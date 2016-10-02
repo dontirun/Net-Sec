@@ -19,6 +19,7 @@ LinkedList* createList();
 
 // Functions
 void insertElement(LinkedList *list, void *newElement);
+void* popElement(LinkedList *list);
 void* removeElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *elm2));
 void printList(LinkedList *list, void(*printElm)(void *elm));
 
