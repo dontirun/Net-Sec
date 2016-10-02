@@ -63,7 +63,7 @@ void DieWithSystemMessage(const char *msg) {
 }
 
 //Creating a stream socket using TCP
-int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+int sock;
 
 int main(int argc, char *argv[]) {
 
@@ -78,6 +78,7 @@ int main(int argc, char *argv[]) {
 	const u_char *packet;		// The actual packet 
 
 	//private ip for NAT
+	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	char* natIP = "10.4.11.3";
 	// Establish connection with NAT
 	// Constructing the server address struct
