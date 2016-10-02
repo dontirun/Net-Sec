@@ -11,6 +11,8 @@
 #include<netinet/in.h>
 #include<unistd.h>	//getpid
 #include <time.h> //clock_gettime and its ilk
+#include <net/if.h>
+#include <stropts.h>
 
 #include "dnsutils.h"
 
@@ -20,12 +22,13 @@ uint32_t dns_server = 0x08080808;
 //Global DNS table. Declaring this globally means that this program is *not*
 // thread safe
 struct DNS_TABLE_ENTRY* t_head = NULL;
+const char* eth_alias = "wlp9s0";
 
 /**
  * Perform a DNS query by sending a packet
  * I copied this from the internet, that's how I know it works -Jesse
  */
-struct RES_RECORD* query_dns( unsigned char *host , int query_type) {
+struct RES_RECORD* query_dns( const unsigned char *host , int query_type ) {
 	unsigned char buf[BIG_BUFFER_SIZE];
 	unsigned char *qname;
 	unsigned char *reader;
@@ -40,6 +43,7 @@ struct RES_RECORD* query_dns( unsigned char *host , int query_type) {
 
 
 	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); //UDP packet for DNS queries
+	bind_to_iface( s, "wlp9s0" );
 
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(53);
@@ -58,7 +62,7 @@ struct RES_RECORD* query_dns( unsigned char *host , int query_type) {
 	//point to the query portion
 	qname =(unsigned char*)&buf[sizeof(struct DNS_HEADER)];
 
-	ChangetoDnsNameFormat(qname, host);
+	fill_dns_from_host(qname, host);
 	qinfo =(struct QUESTION*)&buf[sizeof(struct DNS_HEADER) + (strlen((const char*)qname) + 1)]; //fill it
 
 	qinfo->qtype = htons( query_type ); //type of the query , A , MX , CNAME , NS etc
@@ -178,24 +182,29 @@ unsigned char* ReadName(unsigned char* reader,unsigned char* buffer,int* count) 
 	return name;
 }
 
-/*
- * This will convert www.google.com to 3www6google3com 
- * got it :)
- * */
-void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host) {
-	int lock = 0;
-	strcat((char*)host,".");
+/**
+ * Fill the dns pointer with a dns-style hostname based on the given host
+ * conforms (probably) to rfc1035
+ */
+void fill_dns_from_host( unsigned char* dns, const unsigned char* host) {
 
-	for( int i = 0 ; i < strlen((char*)host) ; i++) {
-		if(host[i]=='.') {
-			*dns++ = i-lock;
-			for(;lock<i;lock++) {
-				*dns++=host[lock];
-			}
-			lock++;
+	unsigned char* dns_ptr = dns++;
+	int counter = 0;
+	for( int i = 0 ; ; i++) {
+		if(host[i]=='.' ) {
+			*dns_ptr = counter;
+			dns_ptr = dns++;
+			counter = 0;
+		} else if( host[i] == '\0' ) {
+			*dns_ptr = counter;
+			*(dns++) = '\0';
+			counter = 0;
+			break;
+		} else {
+			counter++;
+			*(dns++) = host[i];
 		}
 	}
-	*dns++='\0';
 }
 
 
@@ -225,12 +234,14 @@ void remove_table_entry( struct DNS_TABLE_ENTRY* entry ) {
  *
  * New hostnames, or hostnames with expired ttls will require a dns lookup
  */
-uint32_t resolve( unsigned char* hostname ) {
+struct in_addr resolve( unsigned char* hostname ) {
 	struct timespec ts;
+	struct in_addr ret;
 	int err = clock_gettime( CLOCK_REALTIME, &ts );
 	if( err ) {
 		perror( "clock error" );
-		return -1;
+		ret.s_addr = -1;
+		return ret;
 	}
 	time_t timestamp = ts.tv_sec;
 
@@ -240,17 +251,22 @@ uint32_t resolve( unsigned char* hostname ) {
 			continue;
 		}
 		if( strcmp( (char*)hostname, (char*)i->name ) == 0 ) {
-			return i->hex_addr;
+			ret.s_addr = i->hex_addr;
+			return ret;
 		}
 	}
 	// Nothing in the cache, query and add to cache
 	struct RES_RECORD* resp = query_dns( hostname, T_A );
+	if( resp == NULL ) {
+		ret.s_addr = -1;
+		return ret;
+	}
+
 	struct DNS_TABLE_ENTRY* new = malloc( sizeof *new );
 
 	new->name = hostname;
-	new->hex_addr = *((uint32_t*)resp->rdata );
+	new->hex_addr = ( *((uint32_t*)resp->rdata ) );
 	new->ttl = ntohl( resp->resource->ttl );
-	printf( "new ttl is %d\n", new->ttl );
 	new->timestamp = timestamp;
 	//Set the newest entry as the head of the LL
 	if( t_head ) {
@@ -261,7 +277,8 @@ uint32_t resolve( unsigned char* hostname ) {
 	t_head = new;
 	free_res( resp );
 
-	return new->hex_addr;
+	ret.s_addr = new->hex_addr;
+	return ret;
 }
 
 
@@ -293,5 +310,18 @@ void print_header( uint8_t* header, size_t len ) {
 			printf( "\n" );
 		}
 	}
+}
+
+retcode bind_to_iface( int sock, const char* iface ) {
+	struct ifreq ifr;
+	memset( &ifr, 0, sizeof( ifr ) );
+	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), iface);
+	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE,
+				(void *)&ifr, sizeof(ifr)) < 0) {
+		return -1;
+	}
+	return 0;
+
+
 }
 

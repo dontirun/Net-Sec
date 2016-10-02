@@ -17,6 +17,8 @@
 
 #define BIG_BUFFER_SIZE 65535
 
+typedef int retcode;
+
 
 
 //DNS header structure
@@ -74,12 +76,13 @@ struct DNS_TABLE_ENTRY {
 };
 
 //Function Prototypes
-struct RES_RECORD* query_dns ( unsigned char* host, int query_type );
-void ChangetoDnsNameFormat ( unsigned char*,unsigned char*);
+struct RES_RECORD* query_dns ( const unsigned char* host, int query_type );
+void fill_dns_from_host( unsigned char* dns, const unsigned char* host);
 unsigned char* ReadName ( unsigned char*,unsigned char*,int*);
-uint32_t resolve( unsigned char* hostname );
+struct in_addr resolve( unsigned char* hostname );
 void print_header( uint8_t* header, size_t len );
 void free_res( struct RES_RECORD* res );
 void free_table( void );
+retcode bind_to_iface( int sock, const char* iface );
 
 #endif

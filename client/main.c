@@ -13,6 +13,8 @@
 
 
 int main( int argc, char** argv ) {
+	
+	uint32_t dns_server;
 
 	uint32_t src  = 0xdeadbeef;
 	
