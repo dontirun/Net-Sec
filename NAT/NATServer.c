@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include "LinkedList.h"
 #include <errno.h>
 
 // Network Imports
@@ -32,7 +31,6 @@ int manipulateMapping(char *ip);
 int send_all(char *message, int messageSize, int socket);
 int recv_all(char **message, int socket);
 void* handleClientConnections(void* socket);
-void* cleanFinishedThreads(void *threadList);
 void* handleRequest(void *request);
 
 volatile sig_atomic_t quit = 0;
@@ -88,7 +86,6 @@ int main(int argc, char **argv) {
     printf("Server is listening at %s:%d\n", inet_ntoa(*hostIP), portNum); 
 
     // Establish connection between NAT and Client
-    LinkedList *cliThreads = createList();
     while(!quit) {
         listen(sockfd, 10);
         cliSize = sizeof(cliAddr);   
@@ -109,23 +106,17 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        insertElement(cliThreads, cliThread);
+        // Detach thread
+        pthread_detach(*cliThread);
     }
     
     printf("\nShutting Down Server...\n");
 
-    // Join up with the threads serving clients
-    int i;
-    for(i = 0; i < cliThreads->size; i++) {
-        Node *head = cliThreads->head;
-        pthread_join(*((pthread_t *)head->elm), NULL);
-        head = head->next;
-    }
-
     // Close Sockets
     close(sockfd);
     
-    return 0;
+    // Exit main thread
+    pthread_exit(0);
 }
 
 /**
@@ -164,23 +155,13 @@ void printUsage() {
  */
 void* handleClientConnections(void* socket) {
     int cliSock = *((int *)socket);
-    
-    // Initialize thread list
-    LinkedList *activeThreads = createList();
-
-    // Create a thread to clean up the created threads
-    pthread_t *threadCleaner = malloc(sizeof(pthread_t));
-    int rc = pthread_create(threadCleaner, NULL, cleanFinishedThreads, (void*)activeThreads);
-    if (rc) {
-        printf("Error creating thread cleaner, Code: %d\n", rc);
-        exit(1);
-    }
 
     while(!quit) {
         // Recieve Request
         char *messagePtr = NULL;
         recv_all(&messagePtr, cliSock);
         
+        // Check quit flag after read call is unblocked 
         if(quit)
             break;
         
@@ -196,39 +177,17 @@ void* handleClientConnections(void* socket) {
             printf("Error creating thread, Request %s, Code: %d\n", messagePtr, response);
             // Handle error so request will be finished in some way
             continue;
-        } 
+        }
                 
-        insertElement(activeThreads, thread);
+        // Detach thread
+        pthread_detach(*thread);
     }
-
-    // Wait for thread cleaner
-    pthread_join(*threadCleaner, NULL);
 
     // Close Socket
     close(cliSock);
 
-    return NULL;
-}
-
-/**
- * Input:
- *     Pointer to a LinkedList containing the pthread_t of active threads
- * Output:
- *     None
- *
- * Join up with the threads in the given list to clean them up
- */
-void* cleanFinishedThreads(void *threadList) {
-    LinkedList *list = (LinkedList *)threadList;
-
-    while(!quit) {
-        if(list->size <= 0)
-            continue;
-        pthread_t *head = popElement(list);
-        pthread_join(*head, NULL);
-    }
-
-    return NULL;
+    // Destroy client thread
+    pthread_exit(0);
 }
 
 /**
@@ -265,7 +224,8 @@ void* handleRequest(void *request) {
     int respSize = asprintf(&resp, "ACK;%s", ip) + 1;
     send_all(resp, respSize, cliSock);
 
-    return NULL;
+    // Destroy request thread
+    pthread_exit(0);
 }
 
 /**
@@ -274,7 +234,7 @@ void* handleRequest(void *request) {
  * Output:
  *     0 if mapping was created succesfully, 1 if failure
  *
- *
+ * Manipulate mappings based on commands from the NAT and Server
  */
 int manipulateMapping(char *ip) {
     // Form iptable command
@@ -317,7 +277,7 @@ int recv_all(char **message, int socket) {
             free(*message);
             return 0;           
         } else {
-            perror("Error - Cannot read from socket\n");
+            perror("\nError - Cannot read from socket\n");
             return 1;
         }
     }
