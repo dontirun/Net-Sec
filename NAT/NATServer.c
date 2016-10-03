@@ -17,6 +17,7 @@
 // Multithreaded Imports
 #include <pthread.h>
 
+#define MAXIP 20
 #define MAXMESSAGESIZE 21
 
 typedef struct {
@@ -39,7 +40,6 @@ volatile sig_atomic_t quit = 0;
  * Run in a continuous loop and await commands from the DNS
  */
 int main(int argc, char **argv) {
-
     char hostName[1024];
     int portNum, sockfd;
     struct hostent *host;
@@ -165,6 +165,10 @@ void* handleClientConnections(void* socket) {
         if(quit)
             break;
         
+        // Check request is valid
+        if(strlen(messagePtr) <= 0)
+            continue;
+
         // Create Request
         Request *request = malloc(sizeof(Request));
         request->message = messagePtr;
@@ -216,7 +220,7 @@ void* handleRequest(void *request) {
     // Act based on the command
     if(strcmp(command, "ADD") == 0) {
         // Create mapping for the given IP
-        //manipulateMapping(ip);
+        manipulateMapping(ip);
     } else if(strcmp(command, "BAN") == 0) {
         // Blacklist given IP
 
@@ -248,16 +252,22 @@ int manipulateMapping(char *ip) {
     // Form iptable command
     char *command;
 
-    asprintf(&command, "sudo iptables -t nat -A INPUT -p tcp --dport http -s %s -m state --state NEW -j ACCEPT", ip);
+    // Randomly generate an int within range of public IPs
+    time_t t;
+    srand((unsigned) time(&t));
+    int i = rand() % MAXIP;
+
+    printf("%d\n", i);
+    
+    //asprintf(&command, "sudo iptables -t nat -A INPUT -p tcp --dport http -s %s -m state --state NEW -j ACCEPT", ip);
 
     // Execute command
-    int result = system(command);
+    //int result = system(command);
 
     // Check command executed successfully
-    if(result < 0) {
-        
-        return 1;
-    }    
+    //if(result < 0) {  
+    //    return 1;
+    //}    
 
     return 0;
 }
