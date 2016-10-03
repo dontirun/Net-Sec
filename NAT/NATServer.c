@@ -186,6 +186,9 @@ void* handleClientConnections(void* socket) {
     // Close Socket
     close(cliSock);
 
+    // Free resources
+    free(socket);
+
     // Destroy client thread
     pthread_exit(0);
 }
@@ -223,6 +226,11 @@ void* handleRequest(void *request) {
     char *resp;
     int respSize = asprintf(&resp, "ACK;%s", ip) + 1;
     send_all(resp, respSize, cliSock);
+
+    // Free resources
+    free(resp);
+    free(message);
+    free(request);
 
     // Destroy request thread
     pthread_exit(0);
@@ -273,13 +281,8 @@ int recv_all(char **message, int socket) {
     memset(*message, 0, MAXMESSAGESIZE);
     int messageSize = read(socket, *message, MAXMESSAGESIZE - 1);
     if(messageSize < 0) {
-        if(messageSize == -1 && errno == EAGAIN) {
-            free(*message);
-            return 0;           
-        } else {
             perror("\nError - Cannot read from socket\n");
             return 1;
-        }
     }
     
     return 0;
@@ -311,4 +314,4 @@ int send_all(char *message, int messageSize, int socket) {
 
     return 0;
 }
-`
+
