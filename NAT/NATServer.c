@@ -28,7 +28,7 @@ typedef struct {
 // Function Prototypes
 void printUsage();
 void term(int signum);
-int insertMapping(char *ip);
+int manipulateMapping(char *ip);
 int send_all(char *message, int messageSize, int socket);
 int recv_all(char **message, int socket);
 void* handleClientConnections(void* socket);
@@ -100,7 +100,8 @@ int main(int argc, char **argv) {
             perror("Error - Cannot accept client\n");
             continue;
         }
-
+        
+        // Create a new thread for each client
         pthread_t *cliThread = malloc(sizeof(pthread_t));
         int rc = pthread_create(cliThread, NULL, handleClientConnections, (void*)cliSock);
         if(rc) {
@@ -111,8 +112,9 @@ int main(int argc, char **argv) {
         insertElement(cliThreads, cliThread);
     }
     
-    printf("Shutting Down Server...\n");
+    printf("\nShutting Down Server...\n");
 
+    // Join up with the threads serving clients
     int i;
     for(i = 0; i < cliThreads->size; i++) {
         Node *head = cliThreads->head;
@@ -152,6 +154,14 @@ void printUsage() {
     printf("\n");
 }
 
+/**
+ * Input:
+ *     socket - Socket for communicating with the client
+ * Output:
+ *     None
+ *
+ * Listen for requests from clients and handle them.
+ */
 void* handleClientConnections(void* socket) {
     int cliSock = *((int *)socket);
     
@@ -174,14 +184,13 @@ void* handleClientConnections(void* socket) {
         if(quit)
             break;
         
-        // Create thread to handle request
-        pthread_t *thread = malloc(sizeof(pthread_t));
-
         // Create Request
         Request *request = malloc(sizeof(Request));
         request->message = messagePtr;
         request->socket = cliSock;
-
+        
+        // Create thread to handle request
+        pthread_t *thread = malloc(sizeof(pthread_t));
         int response = pthread_create(thread, NULL, handleRequest, (void *)request);
         if(response) {
             printf("Error creating thread, Request %s, Code: %d\n", messagePtr, response);
@@ -207,7 +216,7 @@ void* handleClientConnections(void* socket) {
  * Output:
  *     None
  *
- * Runs in a separate thread and cleans up other threads
+ * Join up with the threads in the given list to clean them up
  */
 void* cleanFinishedThreads(void *threadList) {
     LinkedList *list = (LinkedList *)threadList;
@@ -245,7 +254,7 @@ void* handleRequest(void *request) {
     // Act based on the command
     if(strcmp(command, "ADD") == 0) {
         // Create mapping for the given IP
-        insertMapping(ip);
+        //manipulateMapping(ip);
     } else if(strcmp(command, "BAN") == 0) {
         // Blacklist given IP
 
@@ -253,7 +262,7 @@ void* handleRequest(void *request) {
 
     // Send Response
     char *resp;
-    int respSize = asprintf(&resp, "FIN;%s", ip) + 1;
+    int respSize = asprintf(&resp, "ACK;%s", ip) + 1;
     send_all(resp, respSize, cliSock);
 
     return NULL;
@@ -264,8 +273,10 @@ void* handleRequest(void *request) {
  *     IP address given by the DNS, corresponds to the IP prefix of the ISP
  * Output:
  *     0 if mapping was created succesfully, 1 if failure
+ *
+ *
  */
-int insertMapping(char *ip) {
+int manipulateMapping(char *ip) {
     // Form iptable command
     char *command;
 
