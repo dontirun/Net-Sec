@@ -1,3 +1,5 @@
 *.o
 client/main
 .DS_Store
+NAT/DNSClient
+NAT/NATServer
