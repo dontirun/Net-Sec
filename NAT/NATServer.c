@@ -17,7 +17,8 @@
 // Multithreaded Imports
 #include <pthread.h>
 
-#define MAXIP 20
+#define PUBLICIPRANGESTART 10
+#define PUBLICIPRANGEEND 20
 #define MAXMESSAGESIZE 21
 
 typedef struct {
@@ -28,7 +29,7 @@ typedef struct {
 // Function Prototypes
 void printUsage();
 void term(int signum);
-int manipulateMapping(char *ip);
+char* manipulateMapping(char *ip);
 int send_all(char *message, int messageSize, int socket);
 int recv_all(char **message, int socket);
 void* handleClientConnections(void* socket);
@@ -116,7 +117,7 @@ int main(int argc, char **argv) {
     close(sockfd);
     
     // Exit main thread
-    pthread_exit(0);
+    exit(0);
 }
 
 /**
@@ -169,6 +170,8 @@ void* handleClientConnections(void* socket) {
         if(strlen(messagePtr) <= 0)
             continue;
         
+        printf("Thread created: %d\n", cliSock);
+
         // Create Request
         Request *request = malloc(sizeof(Request));
         request->message = messagePtr;
@@ -182,6 +185,7 @@ void* handleClientConnections(void* socket) {
             // Handle error so request will be finished in some way
             continue;
         }
+        printf("Thread created: %s\n", messagePtr);
                 
         // Detach thread
         pthread_detach(*thread);
@@ -206,6 +210,8 @@ void* handleClientConnections(void* socket) {
  * Handle the request of the client in a separate thread
  */
 void* handleRequest(void *request) {
+    char *mappedIP;
+
     // Convert given pointer to actual type
     char *message = ((Request *)request)->message;
     int cliSock = ((Request *) request)->socket;
@@ -220,7 +226,10 @@ void* handleRequest(void *request) {
     // Act based on the command
     if(strcmp(command, "ADD") == 0) {
         // Create mapping for the given IP
-        manipulateMapping(ip);
+        mappedIP = manipulateMapping(ip);
+        if(mappedIP == NULL) {
+            // Error creating mapping
+        }
     } else if(strcmp(command, "BAN") == 0) {
         // Blacklist given IP
 
@@ -228,13 +237,15 @@ void* handleRequest(void *request) {
 
     // Send Response
     char *resp;
-    int respSize = asprintf(&resp, "ACK;%s", ip) + 1;
+    int respSize = asprintf(&resp, "ACK;%s", mappedIP) + 1;
     send_all(resp, respSize, cliSock);
 
     // Free resources
     free(resp);
     free(message);
     free(request);
+    if(mappedIP != NULL)
+        free(mappedIP);
 
     // Destroy request thread
     pthread_exit(0);
@@ -244,14 +255,16 @@ void* handleRequest(void *request) {
  * Input:
  *     IP address given by the DNS, corresponds to the IP prefix of the ISP
  * Output:
- *     0 if mapping was created succesfully, 1 if failure
+ *     Public ip from mapping if successful, NULL otherwise
  *
  * Manipulate mappings based on commands from the NAT and Server
  */
-int manipulateMapping(char *ip) {
-    // Separate the Client IP into the four parts
+char* manipulateMapping(char *ip) {
     int cp1, cp2, cp3, cp4;
-    int ispp1, ispp2, ispp3, ispp4, isp;
+    int ispp1, ispp2, ispp3, ispp4;
+    char *ispPrefix, *publicIP;
+
+    // Separate the Client IP into the four parts
     sscanf(ip, "%d.%d.%d.%d\n", &cp1, &cp2, &cp3, &cp4);
 
     // Calculate the subnet of the client ISP
@@ -259,32 +272,33 @@ int manipulateMapping(char *ip) {
     ispp2 = cp2 & 255;
     ispp3 = cp3 & 255;
     ispp4 = cp4 & 192;
-    isp = ispp1 << 24 | ispp2 << 16 | ispp3 << 8 | ispp4;
-
-    printf("%d.%d.%d.%d\n", ispp1, ispp2, ispp3, ispp4);
-
-    // Form iptable command
-    char *command;
+    asprintf(&ispPrefix, "%d.%d.%d.%d/26", ispp1, ispp2, ispp3, ispp4);
+    printf("%s\n", ispPrefix);
 
     // Randomly generate an int within range of public IPs
     time_t t;
     srand((unsigned) time(&t));
-    int i = rand() % MAXIP;
-
-    printf("10.4.11.3.%d\n", i);
-
+    int i = rand() % (PUBLICIPRANGEEND - PUBLICIPRANGESTART + 1) + PUBLICIPRANGESTART;
+    asprintf(&publicIP, "%d.%d.%d.%d", 10, 4, 11, i);
     
-    asprintf(&command, "sudo iptables -t nat -A INPUT -p tcp --dport http -s %s -m state --state NEW,ESTABLISHED -j ACCEPT", ip);
+    // Form iptable command
+    char *command;
+    asprintf(&command, "sudo iptables -t filter -A INPUT -p tcp --dport http -s %s -d %s -m state --state NEW,ESTABLISHED -j ACCEPT", ispPrefix, publicIP);
 
     // Execute command
-    //int result = system(command);
+    int result = system(command);
+
+    // Free resources
+    free(command);
+    free(ispPrefix);
 
     // Check command executed successfully
-    //if(result < 0) {  
-    //    return 1;
-    //}    
+    if(result < 0) {  
+        printf("Error adding mapping, Code: %d\n", result);
+        return NULL;
+    }    
 
-    return 0;
+    return publicIP;
 }
 
 /**
