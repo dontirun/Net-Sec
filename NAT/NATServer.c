@@ -168,7 +168,7 @@ void* handleClientConnections(void* socket) {
         // Check request is valid
         if(strlen(messagePtr) <= 0)
             continue;
-
+        
         // Create Request
         Request *request = malloc(sizeof(Request));
         request->message = messagePtr;
@@ -249,6 +249,20 @@ void* handleRequest(void *request) {
  * Manipulate mappings based on commands from the NAT and Server
  */
 int manipulateMapping(char *ip) {
+    // Separate the Client IP into the four parts
+    int cp1, cp2, cp3, cp4;
+    int ispp1, ispp2, ispp3, ispp4, isp;
+    sscanf(ip, "%d.%d.%d.%d\n", &cp1, &cp2, &cp3, &cp4);
+
+    // Calculate the subnet of the client ISP
+    ispp1 = cp1 & 255;
+    ispp2 = cp2 & 255;
+    ispp3 = cp3 & 255;
+    ispp4 = cp4 & 192;
+    isp = ispp1 << 24 | ispp2 << 16 | ispp3 << 8 | ispp4;
+
+    printf("%d.%d.%d.%d\n", ispp1, ispp2, ispp3, ispp4);
+
     // Form iptable command
     char *command;
 
@@ -257,9 +271,10 @@ int manipulateMapping(char *ip) {
     srand((unsigned) time(&t));
     int i = rand() % MAXIP;
 
-    printf("%d\n", i);
+    printf("10.4.11.3.%d\n", i);
+
     
-    //asprintf(&command, "sudo iptables -t nat -A INPUT -p tcp --dport http -s %s -m state --state NEW -j ACCEPT", ip);
+    asprintf(&command, "sudo iptables -t nat -A INPUT -p tcp --dport http -s %s -m state --state NEW,ESTABLISHED -j ACCEPT", ip);
 
     // Execute command
     //int result = system(command);
