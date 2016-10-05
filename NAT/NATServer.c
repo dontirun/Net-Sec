@@ -295,15 +295,17 @@ void* handleRequest(void *request) {
     if(strcmp(command, "ADD") == 0) {
         // Create mapping for the given IP
         mappedIP = manipulateMapping(ip);
+
         if(mappedIP == NULL) {
             // Error creating mapping
+            mappedIP = malloc(5);
+            mappedIP = "NONE";
         }
     } else if(strcmp(command, "BAN") == 0) {
         // Blacklist given IP
-
     }
 
-    // Send Response
+    // Send response with mapping
     char *resp;
     int respSize = asprintf(&resp, "ACK;%s", mappedIP) + 1;
     send_all(resp, respSize, cliSock);
@@ -329,18 +331,13 @@ void* handleRequest(void *request) {
  */
 char* manipulateMapping(char *ip) {
     int cp1, cp2, cp3, cp4;
-    int ispp1, ispp2, ispp3, ispp4;
     char *ispPrefix, *publicIP;
 
     // Separate the Client IP into the four parts
     sscanf(ip, "%d.%d.%d.%d\n", &cp1, &cp2, &cp3, &cp4);
 
-    // Calculate the subnet of the client ISP
-    ispp1 = cp1 & 255;
-    ispp2 = cp2 & 255;
-    ispp3 = cp3 & 255;
-    ispp4 = cp4 & 192;
-    asprintf(&ispPrefix, "%d.%d.%d.%d/26", ispp1, ispp2, ispp3, ispp4);
+    // Calculate the range of the subnet of client ISP
+    asprintf(&ispPrefix, "%d.%d.%d.%d/26", cp1 & 255, cp2 & 255, cp3 & 255, cp4 & 192);
 
     // Randomly generate an int within range of public IPs
     time_t t;
@@ -350,10 +347,10 @@ char* manipulateMapping(char *ip) {
     
     // Form iptable command
     char *command;
-    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s -j ACCEPT", ispPrefix, publicIP);
-    checkAddRule("sudo iptables -t filter", "-A", command);
     asprintf(&command, "PREROUTING -s %s -d %s -j DNAT --to %s", ispPrefix, publicIP, SERVERIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
+    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s -j ACCEPT", ispPrefix, publicIP);
+    checkAddRule("sudo iptables -t filter", "-A", command);
     asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, ispPrefix, publicIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
 
