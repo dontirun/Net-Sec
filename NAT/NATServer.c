@@ -17,8 +17,13 @@
 // Multithreaded Imports
 #include <pthread.h>
 
-#define PUBLICIPRANGESTART 10
-#define PUBLICIPRANGEEND 20
+#define NATIP "10.4.11.192"
+#define DNSIP "10.4.11.193"
+#define SERVERIP "192.168.1.101"
+
+#define PUBLICIPRANGESTART 194
+#define PUBLICIPRANGEEND 254
+
 #define MAXMESSAGESIZE 21
 
 typedef struct {
@@ -29,11 +34,16 @@ typedef struct {
 // Function Prototypes
 void printUsage();
 void term(int signum);
-char* manipulateMapping(char *ip);
-int send_all(char *message, int messageSize, int socket);
-int recv_all(char **message, int socket);
+
+void insertNATAccessRules();
+void deleteNATAccessRules();
+
 void* handleClientConnections(void* socket);
 void* handleRequest(void *request);
+char* manipulateMapping(char *ip);
+
+int recv_all(char **message, int socket);
+int send_all(char *message, int messageSize, int socket);
 
 volatile sig_atomic_t quit = 0;
 
@@ -86,6 +96,9 @@ int main(int argc, char **argv) {
     // Print the IP and the listening port on the server
     printf("Server is listening at %s:%d\n", inet_ntoa(*hostIP), portNum); 
 
+    // Add IPTables rule to only accept packets from valid NAT and Server
+    insertNATAccessRules();
+
     // Establish connection between NAT and Client
     while(!quit) {
         listen(sockfd, 10);
@@ -112,6 +125,9 @@ int main(int argc, char **argv) {
     }
     
     printf("\nShutting Down Server...\n");
+
+    // Remove the NAT Access rules
+    deleteNATAccessRules();
 
     // Close Sockets
     close(sockfd);
@@ -146,6 +162,61 @@ void printUsage() {
     printf("\n");
 }
 
+void checkAddRule(char *preCheckRule, char* command, char *postCheckRule) {
+    char *checkCommand, *applyCommand;
+
+    asprintf(&checkCommand, "%s -C %s", preCheckRule, postCheckRule);
+    asprintf(&applyCommand, "%s %s %s", preCheckRule, command, postCheckRule);
+
+    if(strcmp(command, "-A") == 0) {
+        if(system(checkCommand))
+            system(applyCommand);
+    } else if(strcmp(command, "-D") == 0) {
+        if(!system(checkCommand))
+            system(applyCommand);
+    }
+}
+
+void insertNATAccessRules() {
+    char *command;
+
+    // Filter packets being processed by NAT
+    checkAddRule("sudo iptables -t filter", "-A", "INPUT -i lo -j ACCEPT");
+    checkAddRule("sudo iptables -t filter", "-A", "INPUT -p tcp --dport ssh -j ACCEPT");
+    asprintf(&command, "INPUT -s %s -j ACCEPT", SERVERIP);
+    checkAddRule("sudo iptables -t filter", "-A", command);
+    asprintf(&command, "INPUT -s %s -j ACCEPT", DNSIP);
+    checkAddRule("sudo iptables -t filter", "-A", command);
+    system("sudo iptables -t filter -P INPUT DROP");
+
+    // Filter packets being Forwarded
+    asprintf(&command, "FORWARD -p udp -d %s -j ACCEPT", DNSIP);
+    checkAddRule("sudo iptables -t filter", "-A", command);
+    system("sudo iptables -t filter -P FORWARD DROP");
+
+    free(command);
+}
+
+void deleteNATAccessRules() {
+    char *command;
+
+    // Remove filters for packets being processed by NAT
+    system("sudo iptables -t filter -P INPUT ACCEPT");
+    checkAddRule("sudo iptables -t filter", "-D", "INPUT -i lo -j ACCEPT");
+    checkAddRule("sudo iptables -t filter", "-D", "INPUT -p tcp --dport ssh -j ACCEPT");
+    asprintf(&command, "INPUT -s %s -j ACCEPT", SERVERIP);
+    checkAddRule("sudo iptables -t filter", "-D", command);
+    asprintf(&command, "INPUT -s %s -j ACCEPT", DNSIP);
+    checkAddRule("sudo iptables -t filter", "-D", command);
+
+    // Remove filters for packets being Forwarded
+    system("sudo iptables -t filter -P FORWARD ACCEPT");
+    asprintf(&command, "FORWARD -p udp -d %s -j ACCEPT", DNSIP);
+    checkAddRule("sudo iptables -t filter", "-D", command);
+
+    free(command);
+}
+
 /**
  * Input:
  *     socket - Socket for communicating with the client
@@ -170,8 +241,6 @@ void* handleClientConnections(void* socket) {
         if(strlen(messagePtr) <= 0)
             continue;
         
-        printf("Thread created: %d\n", cliSock);
-
         // Create Request
         Request *request = malloc(sizeof(Request));
         request->message = messagePtr;
@@ -185,7 +254,6 @@ void* handleClientConnections(void* socket) {
             // Handle error so request will be finished in some way
             continue;
         }
-        printf("Thread created: %s\n", messagePtr);
                 
         // Detach thread
         pthread_detach(*thread);
@@ -273,31 +341,26 @@ char* manipulateMapping(char *ip) {
     ispp3 = cp3 & 255;
     ispp4 = cp4 & 192;
     asprintf(&ispPrefix, "%d.%d.%d.%d/26", ispp1, ispp2, ispp3, ispp4);
-    printf("%s\n", ispPrefix);
 
     // Randomly generate an int within range of public IPs
     time_t t;
     srand((unsigned) time(&t));
     int i = rand() % (PUBLICIPRANGEEND - PUBLICIPRANGESTART + 1) + PUBLICIPRANGESTART;
-    asprintf(&publicIP, "%d.%d.%d.%d", 10, 4, 11, i);
+    asprintf(&publicIP, "10.4.11.%d", i);
     
     // Form iptable command
     char *command;
-    asprintf(&command, "sudo iptables -t filter -A INPUT -p tcp --dport http -s %s -d %s -m state --state NEW,ESTABLISHED -j ACCEPT", ispPrefix, publicIP);
-
-    // Execute command
-    int result = system(command);
+    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s -j ACCEPT", ispPrefix, publicIP);
+    checkAddRule("sudo iptables -t filter", "-A", command);
+    asprintf(&command, "PREROUTING -s %s -d %s -j DNAT --to %s", ispPrefix, publicIP, SERVERIP);
+    checkAddRule("sudo iptables -t nat", "-A", command);
+    asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, ispPrefix, publicIP);
+    checkAddRule("sudo iptables -t nat", "-A", command);
 
     // Free resources
     free(command);
     free(ispPrefix);
-
-    // Check command executed successfully
-    if(result < 0) {  
-        printf("Error adding mapping, Code: %d\n", result);
-        return NULL;
-    }    
-
+    
     return publicIP;
 }
 
@@ -353,4 +416,3 @@ int send_all(char *message, int messageSize, int socket) {
 
     return 0;
 }
-
