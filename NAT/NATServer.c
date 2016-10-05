@@ -406,17 +406,29 @@ void* removeExpiredMappings() {
             continue;
         }
 
+        // Get the head of the mapping list which will be the earliest mapping
         Mapping *map = (Mapping *) mappingList->head->elm;
+
+        // Sleep until the mapping is supposed to expire
         timeUntilExpiration = map->time + EXPIRATIONTIMESECONDS;
         time(&timeNow);
         while(timeNow < timeUntilExpiration) {
             sleep(timeUntilExpiration - timeNow);
             time(&timeNow);
         }
-
+        
+        // Remove the mapping from the list
         map = (Mapping *) popElement(mappingList);
         
-        // Form iptable command
+        // Add the mapping for the established connections
+        asprintf(&command, "PREROUTING -s %s -d %s -m state --state ESTABLISHED -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
+        checkAddRule("sudo iptables -t nat", "-A", command);
+        asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s  -m state --state ESTABLISHED -j ACCEPT", map->ispPrefix, map->publicIP);
+        checkAddRule("sudo iptables -t filter", "-A", command);
+        asprintf(&command, "POSTROUTING -s %s -d %s  -m state --state ESTABLISHED -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
+        checkAddRule("sudo iptables -t nat", "-A", command);
+
+        // Remove the mapping from the iptables
         asprintf(&command, "PREROUTING -s %s -d %s -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
         checkAddRule("sudo iptables -t nat", "-D", command);
         asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s -j ACCEPT", map->ispPrefix, map->publicIP);
