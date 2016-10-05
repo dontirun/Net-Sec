@@ -5,6 +5,7 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include "LinkedList.h"
 
 // Network Imports
 #include <sys/types.h>
