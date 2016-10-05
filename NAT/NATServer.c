@@ -5,6 +5,7 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include "LinkedList.h"
 
 // Network Imports
 #include <sys/types.h>
@@ -21,6 +22,8 @@
 #define DNSIP "10.4.11.193"
 #define SERVERIP "192.168.1.101"
 
+#define EXPIRATIONTIMESECONDS 7
+
 #define PUBLICIPRANGESTART 194
 #define PUBLICIPRANGEEND 254
 
@@ -31,6 +34,12 @@ typedef struct {
     int socket;
 } Request;
 
+typedef struct {
+    time_t time;
+    char *ispPrefix;
+    char *publicIP;
+} Mapping;
+
 // Function Prototypes
 void printUsage();
 void term(int signum);
@@ -38,14 +47,17 @@ void term(int signum);
 void insertNATAccessRules();
 void deleteNATAccessRules();
 
-void* handleClientConnections(void* socket);
+void* handleClientConnections(void *socket);
 void* handleRequest(void *request);
 char* manipulateMapping(char *ip);
+void* removeExpiredMappings();
 
 int recv_all(char **message, int socket);
 int send_all(char *message, int messageSize, int socket);
 
 volatile sig_atomic_t quit = 0;
+pthread_mutex_t mappingListLock;
+LinkedList *mappingList;
 
 /**
  * Run in a continuous loop and await commands from the DNS
@@ -99,7 +111,19 @@ int main(int argc, char **argv) {
     // Add IPTables rule to only accept packets from valid NAT and Server
     insertNATAccessRules();
 
+    // Create list to store mappings
+    mappingList = createList();
+    pthread_t *mappingCleaner = malloc(sizeof(pthread_t));
+    int responseCode = pthread_create(mappingCleaner, NULL, removeExpiredMappings, NULL);
+    if(responseCode) {
+        printf("Error - Cannot create thread to remove mappings, Code: %d\n", responseCode);
+        exit(1);
+    }
+    pthread_detach(*mappingCleaner);
+    free(mappingCleaner);
+
     // Establish connection between NAT and Client
+    pthread_t *cliThread = malloc(sizeof(pthread_t));
     while(!quit) {
         listen(sockfd, 10);
         cliSize = sizeof(cliAddr);   
@@ -113,7 +137,6 @@ int main(int argc, char **argv) {
         }
         
         // Create a new thread for each client
-        pthread_t *cliThread = malloc(sizeof(pthread_t));
         int rc = pthread_create(cliThread, NULL, handleClientConnections, (void*)cliSock);
         if(rc) {
             printf("Error creating thread for client, Code: %d\n", rc);
@@ -128,6 +151,7 @@ int main(int argc, char **argv) {
 
     // Remove the NAT Access rules
     deleteNATAccessRules();
+    free(cliThread);
 
     // Close Sockets
     close(sockfd);
@@ -135,6 +159,10 @@ int main(int argc, char **argv) {
     // Exit main thread
     exit(0);
 }
+
+/******************************************************************
+ *                      Utility Functions                         *
+ ******************************************************************/
 
 /**
  * Input: 
@@ -216,6 +244,40 @@ void deleteNATAccessRules() {
 
     free(command);
 }
+
+int cmpMaps(void* elm1, void *elm2) {
+    // Convert inputs to proper form
+    Mapping *map1 = (Mapping *) elm1;
+    Mapping *map2 = (Mapping *) elm2;
+    int ispCompare, publicCompare, timeCompare, numMatchedFields = 0, numFields = 0;
+
+    if(map1->ispPrefix != NULL) {
+        ispCompare = strcmp(map1->ispPrefix, map2->ispPrefix);
+        numMatchedFields += ispCompare == 0 ? 1 : 0;
+        numFields++;
+    }
+    
+    if(map1->publicIP != NULL) {
+        publicCompare = strcmp(map1->ispPrefix, map2->ispPrefix);
+        numMatchedFields += publicCompare == 0 ? 1 : 0;
+        numFields++;
+    }
+
+    if(map1->time != 0) {
+        timeCompare = map1->time - map2->time;
+        numMatchedFields += timeCompare == 0 ? 1 : 0;
+        numFields++;
+    }
+
+    if(numMatchedFields == numFields)
+        return 0;
+    else
+        return 1;
+}
+
+/******************************************************************
+ *                 Client and Request Handling                    *
+ ******************************************************************/
 
 /**
  * Input:
@@ -314,8 +376,6 @@ void* handleRequest(void *request) {
     free(resp);
     free(message);
     free(request);
-    if(mappedIP != NULL)
-        free(mappedIP);
 
     // Destroy request thread
     pthread_exit(0);
@@ -325,7 +385,7 @@ void* handleRequest(void *request) {
  * Input:
  *     IP address given by the DNS, corresponds to the IP prefix of the ISP
  * Output:
- *     Public ip from mapping if successful, NULL otherwise
+ *     Public ip from mapping if successful, NULL otherwise. Do not free given string
  *
  * Manipulate mappings based on commands from the NAT and Server
  */
@@ -354,12 +414,84 @@ char* manipulateMapping(char *ip) {
     asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, ispPrefix, publicIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
 
+    // Store mapping information and time
+    Mapping *map = malloc(sizeof(Mapping));
+    time(&(map->time));
+    map->ispPrefix = ispPrefix;
+    map->publicIP = publicIP;
+
+    pthread_mutex_lock(&mappingListLock);
+    insertElement(mappingList, map);
+    pthread_mutex_unlock(&mappingListLock);
+
     // Free resources
     free(command);
-    free(ispPrefix);
     
     return publicIP;
 }
+
+/**
+ * Input:
+ *     None
+ * Output:
+ *     NULL
+ *
+ * Removes expired mappings
+ */ 
+void* removeExpiredMappings() {
+    time_t timeNow, timeUntilExpiration;
+    char *command;
+
+    while(!quit){
+        if(mappingList->head == NULL) {
+            sleep(1);
+            continue;
+        }
+
+        // Get the head of the mapping list which will be the earliest mapping
+        Mapping *map = (Mapping *) mappingList->head->elm;
+
+        // Sleep until the mapping is supposed to expire
+        timeUntilExpiration = map->time + EXPIRATIONTIMESECONDS;
+        time(&timeNow);
+        while(timeNow < timeUntilExpiration) {
+            sleep(timeUntilExpiration - timeNow);
+            time(&timeNow);
+        }
+        
+        // Remove the mapping from the list
+        map = (Mapping *) popElement(mappingList);
+
+        // Add the mapping for the established connections
+        asprintf(&command, "PREROUTING -s %s -d %s -m state --state ESTABLISHED -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
+        checkAddRule("sudo iptables -t nat", "-A", command);
+        asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s  -m state --state ESTABLISHED -j ACCEPT", map->ispPrefix, map->publicIP);
+        checkAddRule("sudo iptables -t filter", "-A", command);
+        asprintf(&command, "POSTROUTING -s %s -d %s  -m state --state ESTABLISHED -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
+        checkAddRule("sudo iptables -t nat", "-A", command);
+
+        // Remove the mapping from the iptables
+        asprintf(&command, "PREROUTING -s %s -d %s -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
+        checkAddRule("sudo iptables -t nat", "-D", command);
+        asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s -j ACCEPT", map->ispPrefix, map->publicIP);
+        checkAddRule("sudo iptables -t filter", "-D", command);
+        asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
+        checkAddRule("sudo iptables -t nat", "-D", command);
+
+        free(map);
+    }    
+
+    // Free resources
+    if(command != NULL)
+        free(command);
+
+    // Destroy thread
+    pthread_exit(0);
+}
+
+/******************************************************************
+ *                     Networking Components                      *
+ ******************************************************************/
 
 /**
  * Input:
