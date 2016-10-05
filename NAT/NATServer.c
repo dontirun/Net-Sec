@@ -56,6 +56,7 @@ int recv_all(char **message, int socket);
 int send_all(char *message, int messageSize, int socket);
 
 volatile sig_atomic_t quit = 0;
+pthread_mutex_t mappingListLock;
 LinkedList *mappingList;
 
 /**
@@ -159,6 +160,10 @@ int main(int argc, char **argv) {
     exit(0);
 }
 
+/******************************************************************
+ *                      Utility Functions                         *
+ ******************************************************************/
+
 /**
  * Input: 
  *     Int value of the termination type given
@@ -239,6 +244,40 @@ void deleteNATAccessRules() {
 
     free(command);
 }
+
+int cmpMaps(void* elm1, void *elm2) {
+    // Convert inputs to proper form
+    Mapping *map1 = (Mapping *) elm1;
+    Mapping *map2 = (Mapping *) elm2;
+    int ispCompare, publicCompare, timeCompare, numMatchedFields = 0, numFields = 0;
+
+    if(map1->ispPrefix != NULL) {
+        ispCompare = strcmp(map1->ispPrefix, map2->ispPrefix);
+        numMatchedFields += ispCompare == 0 ? 1 : 0;
+        numFields++;
+    }
+    
+    if(map1->publicIP != NULL) {
+        publicCompare = strcmp(map1->ispPrefix, map2->ispPrefix);
+        numMatchedFields += publicCompare == 0 ? 1 : 0;
+        numFields++;
+    }
+
+    if(map1->time != 0) {
+        timeCompare = map1->time - map2->time;
+        numMatchedFields += timeCompare == 0 ? 1 : 0;
+        numFields++;
+    }
+
+    if(numMatchedFields == numFields)
+        return 0;
+    else
+        return 1;
+}
+
+/******************************************************************
+ *                 Client and Request Handling                    *
+ ******************************************************************/
 
 /**
  * Input:
@@ -380,7 +419,10 @@ char* manipulateMapping(char *ip) {
     time(&(map->time));
     map->ispPrefix = ispPrefix;
     map->publicIP = publicIP;
+
+    pthread_mutex_lock(&mappingListLock);
     insertElement(mappingList, map);
+    pthread_mutex_unlock(&mappingListLock);
 
     // Free resources
     free(command);
@@ -419,7 +461,7 @@ void* removeExpiredMappings() {
         
         // Remove the mapping from the list
         map = (Mapping *) popElement(mappingList);
-        
+
         // Add the mapping for the established connections
         asprintf(&command, "PREROUTING -s %s -d %s -m state --state ESTABLISHED -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
         checkAddRule("sudo iptables -t nat", "-A", command);
@@ -435,6 +477,8 @@ void* removeExpiredMappings() {
         checkAddRule("sudo iptables -t filter", "-D", command);
         asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
         checkAddRule("sudo iptables -t nat", "-D", command);
+
+        free(map);
     }    
 
     // Free resources
@@ -444,6 +488,10 @@ void* removeExpiredMappings() {
     // Destroy thread
     pthread_exit(0);
 }
+
+/******************************************************************
+ *                     Networking Components                      *
+ ******************************************************************/
 
 /**
  * Input:

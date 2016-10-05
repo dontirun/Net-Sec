@@ -141,6 +141,35 @@ void* popElement(LinkedList *list) {
 /**
  * Input:
  *     list - Pointer to the linked list
+ *     elm1 - Element to be removed
+ *     cmp - Compare function for the values in the elements
+ * Output:
+ *     Pointer to the element that is removed, NULL if no match
+ *
+ * Use the given compare function and the given element to find a match if it exists in the list.
+ */
+void* findElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *elm2)) {
+    // Get the head of the list
+    Node *head = list->head;
+    void *foundElm = NULL;
+
+    // Iterate through the list
+    while(head != NULL) {
+        if(cmp(elm1, head) == 0) {
+            foundElm = head->elm;
+            break;
+        }
+        
+        head = head->next;
+    }
+
+    // Return the found element address or null if no match
+    return foundElm;
+}
+
+/**
+ * Input:
+ *     list - Pointer to the linked list
  *     printElm - Callback to print the value correctly
  * Output:
  *     None
