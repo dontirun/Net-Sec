@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 
 	//private ip for NAT
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	char* natIP = "10.4.11.3";
+	char* natIP = "10.4.11.192";
 	// Establish connection with NAT
 	// Constructing the server address struct
 	struct sockaddr_in servAddr; // server address
