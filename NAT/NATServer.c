@@ -22,7 +22,8 @@
 #define DNSIP "10.4.11.193"
 #define SERVERIP "192.168.1.101"
 
-#define EXPIRATIONTIMESECONDS 7
+#define EXPIRATIONTIMESECONDS 7*60
+#define GRACEPERIODSECONDS 2*60
 
 #define PUBLICIPRANGESTART 194
 #define PUBLICIPRANGEEND 254
@@ -392,6 +393,7 @@ void* handleRequest(void *request) {
 char* manipulateMapping(char *ip) {
     int cp1, cp2, cp3, cp4;
     char *ispPrefix, *publicIP;
+    time_t t;
 
     // Separate the Client IP into the four parts
     sscanf(ip, "%d.%d.%d.%d\n", &cp1, &cp2, &cp3, &cp4);
@@ -399,13 +401,30 @@ char* manipulateMapping(char *ip) {
     // Calculate the range of the subnet of client ISP
     asprintf(&ispPrefix, "%d.%d.%d.%d/26", cp1 & 255, cp2 & 255, cp3 & 255, cp4 & 192);
 
+    // Search list to see if a mapping is present
+    Mapping *find = malloc(sizeof(Mapping));
+    find->ispPrefix = ispPrefix;
+    find->publicIP = NULL;
+    find->time = 0;
+
+    pthread_mutex_lock(&mappingListLock);
+    Mapping *match = findElement(mappingList, find, cmpMaps);
+    pthread_mutex_unlock(&mappingListLock);
+    
+    if(match != NULL) {
+        // Check for match times within 5 minutes
+        time(&t);   
+        if(match->time + GRACEPERIODSECONDS < t) {
+            return strdup(match->publicIP);
+        }
+    } 
+
     // Randomly generate an int within range of public IPs
-    time_t t;
     srand((unsigned) time(&t));
     int i = rand() % (PUBLICIPRANGEEND - PUBLICIPRANGESTART + 1) + PUBLICIPRANGESTART;
     asprintf(&publicIP, "10.4.11.%d", i);
     
-    // Form iptable command
+    // Add mappings to IPTables
     char *command;
     asprintf(&command, "PREROUTING -s %s -d %s -j DNAT --to %s", ispPrefix, publicIP, SERVERIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
@@ -417,15 +436,18 @@ char* manipulateMapping(char *ip) {
     // Store mapping information and time
     Mapping *map = malloc(sizeof(Mapping));
     time(&(map->time));
-    map->ispPrefix = ispPrefix;
-    map->publicIP = publicIP;
-
+    map->ispPrefix = strdup(ispPrefix);
+    map->publicIP = strdup(publicIP);
+    
+    // Lock the list and insert the mapping into the list
     pthread_mutex_lock(&mappingListLock);
     insertElement(mappingList, map);
     pthread_mutex_unlock(&mappingListLock);
 
+
     // Free resources
     free(command);
+    free(ispPrefix);
     
     return publicIP;
 }
@@ -442,6 +464,7 @@ void* removeExpiredMappings() {
     time_t timeNow, timeUntilExpiration;
     char *command;
 
+    // Run till the user choose to quit
     while(!quit){
         if(mappingList->head == NULL) {
             sleep(1);
@@ -462,7 +485,16 @@ void* removeExpiredMappings() {
         // Remove the mapping from the list
         map = (Mapping *) popElement(mappingList);
 
-        // Add the mapping for the established connections
+        // Make sure the head of the list is supposed to expire now
+        // List could've been modified while the thread was asleep
+        time(&timeNow);
+        timeUntilExpiration = map->time + EXPIRATIONTIMESECONDS;
+        while(timeNow < timeUntilExpiration) {
+            sleep(timeUntilExpiration - timeNow);
+            time(&timeNow);
+        }
+
+        // Add the mapping for the established connections only
         asprintf(&command, "PREROUTING -s %s -d %s -m state --state ESTABLISHED -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
         checkAddRule("sudo iptables -t nat", "-A", command);
         asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s  -m state --state ESTABLISHED -j ACCEPT", map->ispPrefix, map->publicIP);
@@ -478,6 +510,9 @@ void* removeExpiredMappings() {
         asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
         checkAddRule("sudo iptables -t nat", "-D", command);
 
+        // Destroy the mapping
+        free(map->ispPrefix);
+        free(map->publicIP);
         free(map);
     }    
 
@@ -517,7 +552,6 @@ int recv_all(char **message, int socket) {
     }
     
     return 0;
-
 }
 
 /**
