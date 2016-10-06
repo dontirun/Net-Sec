@@ -1,6 +1,6 @@
 //DNS Query Program on Linux
-//Author : Silver Moon and Jesse Earisman
-//Dated : 2009/4/29 and 2016/09/29
+//Author : Jesse Earisman
+//Dated : 2016/09/29
 
 //Header Files
 #include<stdio.h>	//printf
@@ -13,22 +13,24 @@
 #include <time.h> //clock_gettime and its ilk
 #include <net/if.h>
 #include <stropts.h>
+#include <pthread.h>
+#include <errno.h>
 
-#include "dnsutils.h"
+#include "include/dnsutils.h"
 
-// 8.8.8.8
-uint32_t dns_server = 0x08080808;
 
-//Global DNS table. Declaring this globally means that this program is *not*
-// thread safe
-struct DNS_TABLE_ENTRY* t_head = NULL;
-const char* eth_alias = "wlp9s0";
+// Private function prototypes
+void fill_dns_from_host( unsigned char* dns, const unsigned char* host);
+unsigned char* ReadName ( unsigned char*,unsigned char*,int*);
+void print_header( uint8_t* header, size_t len );
+void free_res( struct RES_RECORD* res );
+
 
 /**
  * Perform a DNS query by sending a packet
  * I copied this from the internet, that's how I know it works -Jesse
  */
-struct RES_RECORD* query_dns( const unsigned char *host , int query_type ) {
+struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char *host , int query_type ) {
 	unsigned char buf[BIG_BUFFER_SIZE];
 	unsigned char *qname;
 	unsigned char *reader;
@@ -43,11 +45,11 @@ struct RES_RECORD* query_dns( const unsigned char *host , int query_type ) {
 
 
 	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); //UDP packet for DNS queries
-	bind_to_iface( s, "wlp9s0" );
+	bind_to_iface( s, res->iface );
 
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(53);
-	dest.sin_addr.s_addr = dns_server; //dns servers
+	dest.sin_addr = res->dns_server; //dns servers
 
 	//Set the DNS structure to standard queries
 	dns = (struct DNS_HEADER *)&buf;
@@ -187,7 +189,6 @@ unsigned char* ReadName(unsigned char* reader,unsigned char* buffer,int* count) 
  * conforms (probably) to rfc1035
  */
 void fill_dns_from_host( unsigned char* dns, const unsigned char* host) {
-
 	unsigned char* dns_ptr = dns++;
 	int counter = 0;
 	for( int i = 0 ; ; i++) {
@@ -207,13 +208,12 @@ void fill_dns_from_host( unsigned char* dns, const unsigned char* host) {
 	}
 }
 
-
-
 /**
  * Clear an entry from the linked list of table entries
  *  and adjust the head of the linked list if appropriate
  */
-void remove_table_entry( struct DNS_TABLE_ENTRY* entry ) {
+void remove_table_entry( struct DNS_RESOLVER* res, struct DNS_TABLE_ENTRY* entry ) {
+	
 	struct DNS_TABLE_ENTRY* n = entry->next;
 	struct DNS_TABLE_ENTRY* p = entry->prev;
 	if( n && p) {
@@ -221,10 +221,45 @@ void remove_table_entry( struct DNS_TABLE_ENTRY* entry ) {
 	} else if( p && !n ) {
 		p->next = NULL;
 	} else if (!p && n) {
-		t_head = n;
+		res->head = n;
 	} else if( !p && !n ) {
-		t_head = NULL;
+		res->head = NULL;
 	}
+}
+
+struct DNS_RESOLVER* dns_init( const char* iface, const char* dns_string ) {
+	struct DNS_RESOLVER* ret = malloc( sizeof( *ret ) );
+	if( ret == NULL ) {
+		perror( "malloc" );
+		return NULL;
+	}
+	ret->head = NULL;
+	int err = pthread_mutex_init( &(ret->rwlock), NULL );
+	if( err ) {
+		free( ret );
+		return NULL;
+	}
+	inet_aton( dns_string, &(ret->dns_server) );
+	ret->iface = iface;
+	return ret;
+}
+
+int dns_cleanup( struct DNS_RESOLVER* to_del ) {
+	
+	// lock the mutex, to make sure that no threads are reading or writing
+	pthread_mutex_lock( &(to_del->rwlock) );
+	struct DNS_TABLE_ENTRY* head = to_del->head;
+	struct DNS_TABLE_ENTRY* next = NULL;
+	while( head ) {
+		next = head->next;
+		head->next = NULL;
+		head->prev = NULL;
+		free( head );
+		head = next;
+	}
+	pthread_mutex_destroy( &(to_del->rwlock) );
+	free( to_del );
+	return 0;
 }
 
 
@@ -234,7 +269,7 @@ void remove_table_entry( struct DNS_TABLE_ENTRY* entry ) {
  *
  * New hostnames, or hostnames with expired ttls will require a dns lookup
  */
-struct in_addr resolve( unsigned char* hostname ) {
+struct in_addr resolve( struct DNS_RESOLVER* res, const unsigned char* hostname ) {
 	struct timespec ts;
 	struct in_addr ret;
 	int err = clock_gettime( CLOCK_REALTIME, &ts );
@@ -245,18 +280,20 @@ struct in_addr resolve( unsigned char* hostname ) {
 	}
 	time_t timestamp = ts.tv_sec;
 
-	for( struct DNS_TABLE_ENTRY* i = t_head; i != NULL; i = i->next ) {
+	pthread_mutex_lock( &(res->rwlock) );
+	for( struct DNS_TABLE_ENTRY* i = res->head; i != NULL; i = i->next ) {
 		if( timestamp > i->timestamp + i->ttl ) {
-			remove_table_entry( i );
+			remove_table_entry( res, i );
 			continue;
 		}
 		if( strcmp( (char*)hostname, (char*)i->name ) == 0 ) {
 			ret.s_addr = i->hex_addr;
+			pthread_mutex_unlock( &(res->rwlock ) );
 			return ret;
 		}
 	}
 	// Nothing in the cache, query and add to cache
-	struct RES_RECORD* resp = query_dns( hostname, T_A );
+	struct RES_RECORD* resp = query_dns( res, hostname, T_A );
 	if( resp == NULL ) {
 		ret.s_addr = -1;
 		return ret;
@@ -269,12 +306,14 @@ struct in_addr resolve( unsigned char* hostname ) {
 	new->ttl = ntohl( resp->resource->ttl );
 	new->timestamp = timestamp;
 	//Set the newest entry as the head of the LL
-	if( t_head ) {
-		t_head->prev = new;
+	if( res->head ) {
+		res->head->prev = new;
 	}
-	new->next = t_head;
+	new->next = res->head;
 	new->prev = NULL;
-	t_head = new;
+	res->head = new;
+
+	pthread_mutex_unlock( &(res->rwlock) );
 	free_res( resp );
 
 	ret.s_addr = new->hex_addr;
@@ -289,17 +328,6 @@ void free_res( struct RES_RECORD* res ) {
 	free( res );
 }
 
-void free_table( void ) {
-	struct DNS_TABLE_ENTRY* head = t_head;
-	struct DNS_TABLE_ENTRY* next = NULL;
-	while( head ) {
-		next = head->next;
-		head->next = NULL;
-		head->prev = NULL;
-		free( head );
-		head = next;
-	}
-}
 /**
  * Used for debugging. Prints each byte of a header in groups of 4
  */
@@ -312,7 +340,12 @@ void print_header( uint8_t* header, size_t len ) {
 	}
 }
 
-retcode bind_to_iface( int sock, const char* iface ) {
+/**
+ * Binds a socket to a particular interface.
+ * Useful when you have one machine, and are testing using multiple IP aliases
+ * Requires root permission
+ */
+int bind_to_iface( int sock, const char* iface ) {
 	struct ifreq ifr;
 	memset( &ifr, 0, sizeof( ifr ) );
 	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), iface);
