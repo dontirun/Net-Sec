@@ -1,6 +1,5 @@
-#ifndef LINKEDLIST_H
-#define LINKEDLIST_H
-
+#ifndef __LINKEDLIST_H__
+#define __LINKEDLIST_H__
 
 typedef struct Node {
     struct Node *prev;
