@@ -6,6 +6,9 @@
 //gcc -m32 FinalProjectServerListener.c -o test -lm -lpcap
 #define SIZE_ETHERNET 14
 
+// lifetime in seconds for hop count
+#define HOPLIFETIME 300
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +20,7 @@
 #include <arpa/inet.h>
 #include <math.h>
 #include <pcap.h>
+#include <sys/time.h>
 
 
 // IP header 
@@ -64,6 +68,9 @@ void DieWithSystemMessage(const char *msg) {
 
 //Creating a stream socket using TCP
 int sock;
+
+// to get time to reset file 
+struct timeval initial;
 
 int main(int argc, char *argv[]) {
 
@@ -133,6 +140,8 @@ int main(int argc, char *argv[]) {
 	}
 	*/
 	// Grab a packet until error occurs //
+	// get starting time stamp
+	gettimeofday(&initial, NULL);
 	packet = pcap_loop(handle,-1,got_packet,NULL);
 	pcap_close(handle);
 
@@ -140,11 +149,26 @@ int main(int argc, char *argv[]) {
 
 //Maurizio, should add code in here 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
-
 	FILE *fp;
 	char buff[50];
-	fp = fopen("hopsByIP.txt","a+");
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	
+	// find lifetime of file hopcount file
+	double elapsed = (now.tv_sec - initial.tv_sec) + ((now.tv_usec - initial.tv_usec)/1000000.0);
+		// start file from scratch if timeout and reset initial time 
+		if (elapsed >= HOPLIFETIME){
+			fp = fopen("hopsByIP.txt","w");
+			gettimeofday(&initial, NULL);
+		}
+		else{
+			fp = fopen("hopsByIP.txt","a+");
+		}
+
+	
+	
 	static int count = 1;                   // packet counter 
+	static struct timeval tv1;
 	
 
 	const struct sniff_ip *ip;              // The IP header 
