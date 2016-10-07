@@ -152,15 +152,17 @@ void* findElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *elm
     // Get the head of the list
     Node *head = list->head;
     void *foundElm = NULL;
+    int i = list->size;
 
     // Iterate through the list
-    while(head != NULL) {
-        if(cmp(elm1, head) == 0) {
+    while(head != NULL && i != 0) {
+        if(cmp(elm1, head->elm) == 0) {
             foundElm = head->elm;
             break;
         }
         
         head = head->next;
+        i--;
     }
 
     // Return the found element address or null if no match
