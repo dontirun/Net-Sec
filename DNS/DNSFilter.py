@@ -13,11 +13,10 @@ def exit(s):
     sys.exit(0)
 
 def NAT_update(ip):
-    s.send('ADD;{}\0'.format(ip))
-    ack = s.recv(20)
+    s.send('ADD;{}'.format(ip))
+    ack = s.recv(25)
     print ack
     ipback = ack.strip().split(';')
-    print ipback[1]
     return (ipback[1],int(ipback[2]))
 
 def handle_dns(pkt):
@@ -29,14 +28,14 @@ def handle_dns(pkt):
     udp.dport = pkt[UDP].dport
 
     natreply = NAT_update(pkt[IP].dst)
-    print natreply[0]
-    print natreply[1]
+    print natreply
+    qd = pkt[UDP].payload
     dns = DNS(id = qd.id, qr = 1, qdcount = 1, ancount = 1, nscount = 1, rcode = 0)
     dns.qd = qd[DNSQR]
     dns.an = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
     dns.ns = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
     dns.ar = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
-    return (ip/udp/dns)
+    send(ip/udp/dns)
 
 def handle_packet(packet):
     print 'PACKET FOUND'
@@ -50,10 +49,7 @@ def handle_packet(packet):
         if pkt[UDP].dport is 53:
             print "It's DNS"
             dns = handle_dns(pkt)
-            packet.set_payload(str(dns))
-    	packet.accept()    
-    else: 
-        packet.drop()
+    packet.drop()
 
 def main(argv):
 
