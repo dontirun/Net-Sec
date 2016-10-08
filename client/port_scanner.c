@@ -9,8 +9,9 @@
 #include <net/if.h>
 
 #include "include/port_scanner.h"
+#include "include/dnsutils.h"
 
-int scan_addr( struct in_addr in, uint16_t port, const char* iface ) {
+int scan_addr( struct in_addr in, uint16_t port, struct in_addr srcip ) {
 
 	//put the entire request in one string, and store it for later
 	int s;
@@ -47,10 +48,7 @@ int scan_addr( struct in_addr in, uint16_t port, const char* iface ) {
 	}
 
 	// Bind to iface
-	struct ifreq ifr;
-	memset( &ifr, 0, sizeof( ifr ) );
-	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), iface);
-	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
+	if( bind_to_addr( s, srcip ) ) {
 		return -1;
 	}
 
@@ -58,6 +56,7 @@ int scan_addr( struct in_addr in, uint16_t port, const char* iface ) {
 		close(s);
 		return -1;
 	}
+	close( s );
 	return 0; //we did it
 }
 
@@ -84,7 +83,7 @@ void* spawn_pscan( void* arg ) {
 		//do the port scan
 		struct in_addr tmp;
 		tmp.s_addr = htonl( i );
-		int addr_exists = scan_addr( tmp, in->nport, in->iface);
+		int addr_exists = scan_addr( tmp, in->nport, in->srcip);
 		printf( "%s : ", inet_ntoa( tmp ) );
 		if( addr_exists ) {
 			printf("MISS" );

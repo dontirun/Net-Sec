@@ -5,7 +5,7 @@
 #include "dnsutils.h"
 
 struct client_in {
-	const char* iface;
+	struct in_addr srcip;
 	const unsigned char* host;
 	uint16_t nport; //network byte order
 	struct DNS_RESOLVER* res;

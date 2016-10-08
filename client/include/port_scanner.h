@@ -6,7 +6,7 @@
 struct pscan_in {
 	struct in_addr start;
 	struct in_addr stop;
-	const char* iface;
+	struct in_addr srcip;
 	uint16_t nport;
 };
 
