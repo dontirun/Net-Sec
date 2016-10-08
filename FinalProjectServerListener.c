@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
 		return(2);
 	}
-	/*
+	
 	// Compile and apply the filter 
 	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
 		fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
 		return(2);
 	}
-	*/
+	
 	// Grab a packet until error occurs //
 	// get starting time stamp
 	gettimeofday(&initial, NULL);
@@ -175,7 +175,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	const struct sniff_ip *ip;              // The IP header 
 
 	
-	//printf("\nPacket number %d:\n", count);
+	printf("\nPacket number %d:\n", count);
 	count++;
 	ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
 
@@ -186,15 +186,15 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		if(strstr(buff,inet_ntoa(ip->ip_src))){
 			fgets(buff, sizeof(buff), fp);
 			getHops = atoi(buff);
-			//printf("%d hops listed in list\n ",getHops);
+			printf("%d hops listed in list\n ",getHops);
 			break;
 		}
 	}
 	if(getHops != NULL){
 		// let through if reasonably close hop count
 		int hopEQ = ceil((double)getHops *.05) + 1;
-		//printf("hopEQ is %d\n", hopEQ);
-		//printf("ttl on incomming packet is %d\n", (int)(ip->ip_ttl));
+		printf("hopEQ is %d\n", hopEQ);
+		printf("ttl on incomming packet is %d\n", (int)(ip->ip_ttl));
 
 		if ((int)(ip->ip_ttl) <= getHops + hopEQ && (int)(ip->ip_ttl) >= getHops - hopEQ){
 			//printf("ttl difference is okay for %s\n",inet_ntoa(ip->ip_src));
@@ -202,7 +202,8 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		// blacklist this ip , add SERVER NAT communication for blacklist
 		else{
 			printf("BLACKLIST %s\n",inet_ntoa(ip->ip_src));
-			char banCommand[20]; 
+			char banCommand[25];
+			memset(banCommand,'\0',25); 
 			strcat(banCommand,"BAN;");
 			strcat(banCommand, inet_ntoa(ip->ip_src));
 			ssize_t banLength = strlen(banCommand);
