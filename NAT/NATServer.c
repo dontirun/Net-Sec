@@ -317,11 +317,11 @@ void handleExpiredMap(void *elm) {
     char *command;
 
     // Add the mapping for the established connections only
-    asprintf(&command, "PREROUTING -s %s -d %s -m state --state ESTABLISHED -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
+    asprintf(&command, "PREROUTING -s %s -d %s -m conntrack --ctstate ESTABLISHED -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
-    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s  -m state --state ESTABLISHED -j ACCEPT", map->ispPrefix, map->publicIP);
+    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s  -m conntrack --ctstate ESTABLISHED -j ACCEPT", map->ispPrefix, map->publicIP);
     checkAddRule("sudo iptables -t filter", "-A", command);
-    asprintf(&command, "POSTROUTING -s %s -d %s  -m state --state ESTABLISHED -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
+    asprintf(&command, "POSTROUTING -s %s -d %s  -m conntrack --ctstate ESTABLISHED -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
 
     // Remove the mapping from the iptables
@@ -444,8 +444,8 @@ void* handleRequest(void *request) {
         SuccessMapping *sm = manipulateMapping(ip);
         mappedIP = sm->mappedIP;
         mappingTTL = sm->mapTTL;
-        
         free(sm);
+
         if(mappedIP == NULL) {
             // Error creating mapping
             mappedIP = malloc(5);
@@ -476,6 +476,7 @@ void* handleRequest(void *request) {
     free(resp);
     free(message);
     free(request);
+    free(mappedIP);
 
     // Destroy request thread
     pthread_exit(0);
