@@ -31,13 +31,14 @@
 #define DNSIP "10.4.11.193"
 #define SERVERIP "192.168.1.101"
 
-#define EXPIRATIONTIMESECONDS 7*60
-#define GRACEPERIODSECONDS 2*60
+#define EXPIRATIONTIMESECONDS 5
+#define GRACEPERIODSECONDS 2
 
 #define PUBLICIPRANGESTART 194
 #define PUBLICIPRANGEEND 254
 
-#define MAXMESSAGESIZE 21
+#define MAXREQUESTMESSAGESIZE 21
+#define MAXRESPONSEMESSAGESIZE 25
 
 /*
  * Structures
@@ -58,6 +59,11 @@ typedef struct {
     time_t (*expirationTime)(void *elm);
     void (*expirationAction)(void *elm);
 } CleanerData;
+
+typedef struct {
+    char *mappedIP;
+    int mapTTL;
+} SuccessMapping;
 
 /*
  * Public Prototypes

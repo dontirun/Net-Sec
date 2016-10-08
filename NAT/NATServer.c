@@ -12,7 +12,7 @@ void handleExpiredBan(void *elm);
 
 void* handleClientConnections(void *socket);
 void* handleRequest(void *request);
-char* manipulateMapping(char *ip);
+SuccessMapping* manipulateMapping(char *ip);
 void* removeExpiredMappings();
 
 int recv_all(char **message, int socket);
@@ -175,6 +175,16 @@ void printUsage() {
     printf("\n");
 }
 
+/**
+ * Input:
+ *     preCheckRule - defines table and initial command Ex: "sudo iptables -t TABLENAME"
+ *     command- "-A" to add rule and "-D" to delete rule
+ *     postCheckRule - contains chain, filters and actions
+ * Output:
+ *     void
+ *
+ * Check if rule exists and only add given rule if it doesn't exist.
+ */
 void checkAddRule(char *preCheckRule, char* command, char *postCheckRule) {
     char *checkCommand, *applyCommand;
 
@@ -190,6 +200,12 @@ void checkAddRule(char *preCheckRule, char* command, char *postCheckRule) {
     }
 }
 
+/**
+ * Input: None
+ * Output: None
+ * 
+ * Setup the rules to only push the certain packets to the NAT application layer.
+ */
 void insertNATAccessRules() {
     char *command;
 
@@ -210,6 +226,12 @@ void insertNATAccessRules() {
     free(command);
 }
 
+/*
+ * Input: None
+ * Output: None
+ *
+ * Remove the rules to only push the certain packets to the NAT application layer.
+ */
 void deleteNATAccessRules() {
     char *command;
 
@@ -234,6 +256,15 @@ void deleteNATAccessRules() {
  *                      Call Back Functions                       *
  ******************************************************************/
 
+/**
+ * Input:
+ *     elm1 - the main element
+ *     elm2 - the element being compared
+ * Output:
+ *     0 if the elements are the same,1 otherwise
+ *
+ * Compares the given element with the main element
+ */
 int cmpMaps(void* elm1, void *elm2) {
     // Convert inputs to proper form
     Mapping *map1 = (Mapping *) elm1;
@@ -264,11 +295,23 @@ int cmpMaps(void* elm1, void *elm2) {
         return 1;
 }
 
+/*
+ * Input:
+ *     elm - Mapping struct 
+ * Output:
+ *     Returns the timestamp of the given element
+ */
 time_t getExpirationTimeMap(void *elm) {
     Mapping *map = (Mapping *) elm;
-    return map->time + EXPIRATIONTIMESECONDS;
+    return map->time + EXPIRATIONTIMESECONDS + GRACEPERIODSECONDS;
 }
 
+/**
+ * Input:
+ *     elm - Expired Mapping
+ * Output:
+ *     None
+ */
 void handleExpiredMap(void *elm) {
     Mapping *map = (Mapping *) elm;
     char *command;
@@ -296,6 +339,12 @@ void handleExpiredMap(void *elm) {
     free(command);
 }
 
+/**
+ * Input:
+ *     elm - expired Ban
+ * Output:
+ *     None
+ */
 void handleExpiredBan(void *elm) {
     Mapping *map = (Mapping *) elm;
     char *command;
@@ -375,7 +424,8 @@ void* handleClientConnections(void* socket) {
  * Handle the request of the client in a separate thread
  */
 void* handleRequest(void *request) {
-    char *mappedIP;
+    char *mappedIP; 
+    int mappingTTL = 0;
 
     // Convert given pointer to actual type
     char *message = ((Request *)request)->message;
@@ -391,7 +441,9 @@ void* handleRequest(void *request) {
     // Act based on the command
     if(strcmp(command, "ADD") == 0) {
         // Create mapping for the given IP
-        mappedIP = manipulateMapping(ip);
+        SuccessMapping *sm = manipulateMapping(ip);
+        mappedIP = sm->mappedIP;
+        mappingTTL = sm->mapTTL;
 
         if(mappedIP == NULL) {
             // Error creating mapping
@@ -416,7 +468,7 @@ void* handleRequest(void *request) {
 
     // Send response with mapping
     char *resp;
-    int respSize = asprintf(&resp, "ACK;%s", mappedIP) + 1;
+    int respSize = asprintf(&resp, "ACK;%s;%d", mappedIP, mappingTTL) + 1;
     send_all(resp, respSize, cliSock);
 
     // Free resources
@@ -436,7 +488,7 @@ void* handleRequest(void *request) {
  *
  * Manipulate mappings based on commands from the NAT and Server
  */
-char* manipulateMapping(char *ip) {
+SuccessMapping* manipulateMapping(char *ip) {
     int cp1, cp2, cp3, cp4;
     char *ispPrefix, *publicIP;
     time_t t;
@@ -448,27 +500,48 @@ char* manipulateMapping(char *ip) {
     asprintf(&ispPrefix, "%d.%d.%d.%d/26", cp1 & 255, cp2 & 255, cp3 & 255, cp4 & 192);
 
     // Search list to see if a mapping is present
-    Mapping *find = malloc(sizeof(Mapping));
-    find->ispPrefix = ispPrefix;
-    find->publicIP = NULL;
-    find->time = 0;
+    Mapping *searchMap = malloc(sizeof(Mapping));
+    searchMap->ispPrefix = ispPrefix;
+    searchMap->publicIP = NULL;
+    searchMap->time = 0;
 
     pthread_mutex_lock(&mappingListLock);
-    Mapping *match = findElement(mappingList, find, cmpMaps);
+    Mapping *match = findElement(mappingList, searchMap, cmpMaps);
     pthread_mutex_unlock(&mappingListLock);
     
     if(match != NULL) {
         // Check for match times within 5 minutes
         time(&t);   
-        if(match->time + GRACEPERIODSECONDS < t) {
-            return strdup(match->publicIP);
+        if(match->time + EXPIRATIONTIMESECONDS < t) {
+            SuccessMapping *map = malloc(sizeof(SuccessMapping));
+            map->mappedIP = strdup(match->publicIP);
+            map->mapTTL = EXPIRATIONTIMESECONDS - (match->time - t);
+            return map;
         }
     } 
 
-    // Randomly generate an int within range of public IPs
-    srand((unsigned) time(&t));
-    int i = rand() % (PUBLICIPRANGEEND - PUBLICIPRANGESTART + 1) + PUBLICIPRANGESTART;
-    asprintf(&publicIP, "10.4.11.%d", i);
+    // Randomly generate an int within range of public IPs that isn't being used'
+    int matchFound = 0;
+    do {
+        srand((unsigned) time(&t));
+        int i = rand() % (PUBLICIPRANGEEND - PUBLICIPRANGESTART + 1) + PUBLICIPRANGESTART;
+        asprintf(&publicIP, "10.4.11.%d", i);
+
+        searchMap->ispPrefix = NULL;
+        searchMap->publicIP = publicIP;
+        
+        match = NULL;
+        pthread_mutex_lock(&mappingListLock);
+        match = findElement(mappingList, searchMap, cmpMaps);
+        pthread_mutex_unlock(&mappingListLock);
+        
+        if(match != NULL)
+            matchFound = 1;
+        else
+            matchFound = 0;
+    } while(matchFound);
+
+    // Make sure
     
     // Add mappings to IPTables
     char *command;
@@ -490,11 +563,15 @@ char* manipulateMapping(char *ip) {
     insertElement(mappingList, map);
     pthread_mutex_unlock(&mappingListLock);
 
+    SuccessMapping *sm = malloc(sizeof(SuccessMapping));
+    sm->mappedIP = publicIP;
+    sm->mapTTL = EXPIRATIONTIMESECONDS;
+
     // Free resources
     free(command);
     free(ispPrefix);
     
-    return publicIP;
+    return sm;
 }
 
 /**
@@ -551,12 +628,12 @@ void* removeExpiredMappings(void *data) {
 int recv_all(char **message, int socket) {
     // Check if the message pointer has not been allocated
     if(*message == NULL) {
-        *message = malloc(MAXMESSAGESIZE);
+        *message = malloc(MAXREQUESTMESSAGESIZE);
     }
 
     // Read in the message
-    memset(*message, 0, MAXMESSAGESIZE);
-    int messageSize = read(socket, *message, MAXMESSAGESIZE - 1);
+    memset(*message, 0, MAXREQUESTMESSAGESIZE);
+    int messageSize = read(socket, *message, MAXREQUESTMESSAGESIZE - 1);
     if(messageSize < 0) {
             perror("\nError - Cannot read from socket\n");
             return 1;
