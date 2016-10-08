@@ -1,4 +1,0 @@
-Malicious clients take in correct addresses
-
-Trial 1:
-	6 clients on 6 interfaces (pthreads)

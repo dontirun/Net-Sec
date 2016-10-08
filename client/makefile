@@ -3,10 +3,8 @@ TRIAL_EXE = $(TRIAL_C:.c=)
 C_SOURCES = $(filter-out $(TRIAL_C), $(wildcard *.c))
 OBJS = $(C_SOURCES:.c=.o)
 
-
-
-L_FLAGS=-g -Wall -lpthread -lcurl
-B_FLAGS=-g -Wall -c
+L_FLAGS=-g -L/usr/lib/x86_64-linux-gnu -Wall -pthread
+B_FLAGS=-g  -L/usr/lib/x86_64-linux-gnu -Wall -c
 
 CC=gcc
 
@@ -14,17 +12,17 @@ CC=gcc
 all: $(TRIAL_EXE)
 
 trial1: trial1.o $(OBJS)
-	$(CC) $(L_FLAGS) $^ -o $@
+	$(CC) $(L_FLAGS) $^ -o $@ -lcurl
 
 trial2: trial2.o $(OBJS)
-	$(CC) $(L_FLAGS) $^ -o $@
+	$(CC) $(L_FLAGS) $^ -o $@ -lcurl
 
 trial3: trial3.o $(OBJS)
-	$(CC) $(L_FLAGS) $^ -o $@
+	$(CC) $(L_FLAGS) $^ -o $@ -lcurl
 
 %.o: %.c
 	$(CC) $(B_FLAGS) $^ -o $@
 
 clean:
-	rm $(OBJS)
+	rm *.o
 	rm $(TRIAL_EXE)

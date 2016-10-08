@@ -354,7 +354,5 @@ int bind_to_iface( int sock, const char* iface ) {
 		return -1;
 	}
 	return 0;
-
-
 }
 
