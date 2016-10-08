@@ -527,7 +527,7 @@ SuccessMapping* manipulateMapping(char *ip) {
     do {
         srand((unsigned) time(&t));
         int i = rand() % (PUBLICIPRANGEEND - PUBLICIPRANGESTART + 1) + PUBLICIPRANGESTART;
-        asprintf(&publicIP, "10.4.11.%d", i);
+        asprintf(&publicIP, SERVERFLUXCLASSAADDRESS, i);
 
         searchMap->ispPrefix = NULL;
         searchMap->publicIP = publicIP;
