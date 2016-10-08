@@ -79,7 +79,7 @@ int sockopt_callback( void* clientp, curl_socket_t curlfd, curlsocktype purpose 
 		return -1;
 	}
 	if( bind_to_iface( curlfd, iface ) ) {
-		perror( "SO_BINDTODEVICE\n" );
+		perror( "SO_BINDTODEVICE" );
 		return -1;
 	}
 	return 0;

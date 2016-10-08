@@ -17,9 +17,6 @@
 
 #define BIG_BUFFER_SIZE 65535
 
-typedef int retcode;
-
-
 
 //DNS header structure
 struct DNS_HEADER

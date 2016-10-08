@@ -346,11 +346,8 @@ void print_header( uint8_t* header, size_t len ) {
  * Requires root permission
  */
 int bind_to_iface( int sock, const char* iface ) {
-	struct ifreq ifr;
-	memset( &ifr, 0, sizeof( ifr ) );
-	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), iface);
 	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE,
-				(void *)&ifr, sizeof(ifr)) < 0) {
+				iface, strlen( iface )) < 0) {
 		return -1;
 	}
 	return 0;

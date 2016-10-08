@@ -117,7 +117,6 @@ int send_packet( uint32_t src, uint32_t dest, uint8_t ttl_high, uint8_t ttl_low,
 		printf( "sendto() error: %s\n", strerror( errno ) );
 		goto fail2;
 	}
-	printf( "sent %i bytes\n", bytes );
 	free( message );
 	return 0;
 
@@ -135,6 +134,3 @@ uint32_t ip_from_comp( uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3 ) {
 	ret = (c0 << 24) + (c1 << 16) + (c2 << 8) + (c3 << 8);
 	return ret;
 }
-
-
-

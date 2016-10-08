@@ -53,7 +53,8 @@ int get_socket_by_in_addr( struct in_addr in, uint16_t port, int* s, const char*
 		return -1;
 	}
 	if( bind_to_iface( *s, iface ) ) {
-		perror( "SO_BINDTODEVICE\n" );
+		printf( "Trying to bind to %s\n", iface );
+		perror( "SO_BINDTODEVICE" );
 		return -1;
 	}
 
