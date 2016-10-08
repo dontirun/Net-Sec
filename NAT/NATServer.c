@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
     bannedList = createList();
     pthread_t *banRemover = malloc(sizeof(pthread_t));
     data = malloc(sizeof(CleanerData));
-    data->list = mappingList;
+    data->list = bannedList;
     data->expirationTime = getExpirationTimeMap;
     data->expirationAction = handleExpiredBan;
     responseCode = pthread_create(banRemover, NULL, removeExpiredMappings, data);
@@ -354,7 +354,7 @@ void handleExpiredBan(void *elm) {
     checkAddRule("sudo iptables -t filter", "-D", command);
 
     // Free Resources
-    free(map->ispPrefix);
+    free(map->publicIP);
     free(map);
     free(command);
 }
@@ -444,7 +444,8 @@ void* handleRequest(void *request) {
         SuccessMapping *sm = manipulateMapping(ip);
         mappedIP = sm->mappedIP;
         mappingTTL = sm->mapTTL;
-
+        
+        free(sm);
         if(mappedIP == NULL) {
             // Error creating mapping
             mappedIP = malloc(5);
@@ -540,8 +541,6 @@ SuccessMapping* manipulateMapping(char *ip) {
         else
             matchFound = 0;
     } while(matchFound);
-
-    // Make sure
     
     // Add mappings to IPTables
     char *command;
@@ -607,6 +606,9 @@ void* removeExpiredMappings(void *data) {
         // Run the expiration action
         cld->expirationAction(elm);
     }
+
+    // Free resources
+    free(cld);
 
     // Destroy thread
     pthread_exit(0);
