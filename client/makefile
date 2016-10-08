@@ -20,6 +20,9 @@ trial2: trial2.o $(OBJS)
 trial3: trial3.o $(OBJS)
 	$(CC) $(L_FLAGS) $^ -o $@ -lcurl
 
+trial4: trial4.o $(OBJS)
+	$(CC) $(L_FLAGS) $^ -o $@ -lcurl
+
 %.o: %.c
 	$(CC) $(B_FLAGS) $^ -o $@
 

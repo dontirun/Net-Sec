@@ -26,14 +26,14 @@ by both client.c and server.c should go in here
 /**
  * get socket by an in_addr
  * port should be in network byte order
- * The socket s will be bound to iface
  */
-int get_socket_by_in_addr( struct in_addr in, uint16_t port, int* s, const char* iface ) {
+int get_socket_by_in_addr( struct in_addr in, uint16_t port, int* s, struct in_addr srcip ) {
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	addr.sin_addr = in;
 	addr.sin_port = port;
 	memset( &(addr.sin_zero), 0, 8 );
+
 
 	if( in.s_addr == -1 ) {
 		perror( "resolve\n" );
@@ -52,8 +52,7 @@ int get_socket_by_in_addr( struct in_addr in, uint16_t port, int* s, const char*
 		perror( "SO_REUSEADDR\n" );
 		return -1;
 	}
-	if( bind_to_iface( *s, iface ) ) {
-		perror( "SO_BINDTODEVICE\n" );
+	if( bind_to_addr( *s, srcip ) ) {
 		return -1;
 	}
 

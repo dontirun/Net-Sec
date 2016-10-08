@@ -17,12 +17,12 @@
 
 int main( int argc, char** argv ) {
 
-	const char* resolver_ifaces[NUM_ISPS] = 
-	{ "enp0s3:1", "enp0s3:5", "enp0s3:9" };
-	const char* aliases[NUM_ISPS][CLIENTS_PER_ISP] = {
-		{"enp0s3:2", "enp0s3:3","enp0s3:4" },
-		{"enp0s3:6", "enp0s3:7","enp0s3:9" },
-		{"enp0s3:10", "enp0s3:11","enp0s3:12" },
+	const char* resolver_ips[NUM_ISPS] = 
+	{ "10.4.11.65", "10.4.11.129", "10.4.11.193" };
+	const char* client_ips[NUM_ISPS][CLIENTS_PER_ISP] = {
+		{"10.4.11.66", "10.4.11.67","10.4.11.68" },
+		{"10.4.11.130", "10.4.11.131","10.4.11.132" },
+		{"10.4.11.194", "10.4.11.195","10.4.11.196" },
 	};
 	pthread_t threads[NUM_ISPS][CLIENTS_PER_ISP];
 	struct client_in args[NUM_ISPS][CLIENTS_PER_ISP];
@@ -32,7 +32,7 @@ int main( int argc, char** argv ) {
 	//Setup resolvers
 	int i,j;
 	for( i = 0; i < NUM_ISPS; i++ ) {
-		res_list[i] = dns_init( resolver_ifaces[i], DNS );
+		res_list[i] = dns_init( resolver_ips[i], DNS );
 		if( res_list[i] == NULL ) {
 			perror( "dns_init" );
 			return -1;
@@ -41,7 +41,7 @@ int main( int argc, char** argv ) {
 
 	for( i = 0; i < NUM_ISPS; i++ ) {
 		for( j = 0; j < CLIENTS_PER_ISP; j++ ) {
-			args[i][j].iface = aliases[i][j];
+			inet_aton( client_ips[i][j], &(args[i][j].srcip) );
 			args[i][j].host = HOST;
 			args[i][j].nport = htons( 80 );
 			args[i][j].res = res_list[i];
