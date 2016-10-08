@@ -3,11 +3,11 @@
 //http://www.tcpdump.org/sniffex.c
 
 // to compile
-//gcc -m32 FinalProjectServerListener.c -o test -lm -lpcap
+//gcc FinalProjectServerListener.c -o test -lm -lpcap
 #define SIZE_ETHERNET 14
 
 // lifetime in seconds for hop count
-#define HOPLIFETIME 300
+#define HOPLIFETIME 5
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 	char *dev;			// The device to sniff on 
 	char errbuf[PCAP_ERRBUF_SIZE];	// Error string 
 	struct bpf_program fp;		//The compiled filter 
-	// char filter_exp[] = "";	// The filter expression
+	char filter_exp[] = "dst 192.168.1.101";	// The filter expression
 	bpf_u_int32 mask;		// Our netmask
 	bpf_u_int32 net;		// Our IP
 	struct pcap_pkthdr header;	// The header that pcap gives us
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 
 	//private ip for NAT
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	char* natIP = "10.4.11.192";
+	char* natIP = "192.168.1.1";
 	// Establish connection with NAT
 	// Constructing the server address struct
 	struct sockaddr_in servAddr; // server address
@@ -160,6 +160,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		if (elapsed >= HOPLIFETIME){
 			fp = fopen("hopsByIP.txt","w");
 			gettimeofday(&initial, NULL);
+			printf("creating new file");
 		}
 		else{
 			fp = fopen("hopsByIP.txt","a+");
@@ -174,7 +175,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	const struct sniff_ip *ip;              // The IP header 
 
 	
-	printf("\nPacket number %d:\n", count);
+	//printf("\nPacket number %d:\n", count);
 	count++;
 	ip = (struct sniff_ip*)(packet + SIZE_ETHERNET);
 
@@ -185,18 +186,18 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		if(strstr(buff,inet_ntoa(ip->ip_src))){
 			fgets(buff, sizeof(buff), fp);
 			getHops = atoi(buff);
-			printf("%d hops listed in list\n ",getHops);
+			//printf("%d hops listed in list\n ",getHops);
 			break;
 		}
 	}
 	if(getHops != NULL){
 		// let through if reasonably close hop count
 		int hopEQ = ceil((double)getHops *.05) + 1;
-		printf("hopEQ is %d\n", hopEQ);
-		printf("ttl on incomming packet is %d\n", (int)(ip->ip_ttl));
+		//printf("hopEQ is %d\n", hopEQ);
+		//printf("ttl on incomming packet is %d\n", (int)(ip->ip_ttl));
 
 		if ((int)(ip->ip_ttl) <= getHops + hopEQ && (int)(ip->ip_ttl) >= getHops - hopEQ){
-			printf("ttl difference is okay for %s\n",inet_ntoa(ip->ip_src));
+			//printf("ttl difference is okay for %s\n",inet_ntoa(ip->ip_src));
 		}
 		// blacklist this ip , add SERVER NAT communication for blacklist
 		else{
