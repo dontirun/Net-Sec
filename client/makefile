@@ -3,8 +3,6 @@ TRIAL_EXE = $(TRIAL_C:.c=)
 C_SOURCES = $(filter-out $(TRIAL_C), $(wildcard *.c))
 OBJS = $(C_SOURCES:.c=.o)
 
-
-
 L_FLAGS=-g -Wall -lpthread -lcurl
 B_FLAGS=-g -Wall -c
 
@@ -26,5 +24,5 @@ trial3: trial3.o $(OBJS)
 	$(CC) $(B_FLAGS) $^ -o $@
 
 clean:
-	rm $(OBJS)
+	rm *.o
 	rm $(TRIAL_EXE)
