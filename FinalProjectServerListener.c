@@ -89,8 +89,7 @@ int main(int argc, char *argv[]) {
 	char* natIP = "192.168.1.1";
 	// Establish connection with NAT
 	// Constructing the server address struct
-	struct sockaddr_in servAddr; // server address
-	memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
+	struct sockaddr_in servAddr; // server address	memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
 	servAddr.sin_family = AF_INET;// IPv4 address family
 	// Convert address
 	int rtnVal = inet_pton(AF_INET, natIP, &servAddr.sin_addr.s_addr);
@@ -100,7 +99,7 @@ int main(int argc, char *argv[]) {
 	else if (rtnVal < 0){
 		DieWithSystemMessage("inet_pton() failed");
 	}
-	in_port_t servPort = 5002;
+	in_port_t servPort = atoi(argv[1]);
 	servAddr.sin_port = htons(servPort); //Local port
 
 	// Establish the connection to the NAT
