@@ -1,0 +1,84 @@
+Trial Summary:
+	Average rtt: 10136
+	Max rtt: 10862
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	Found address 10.4.11.228
+	found 1 addresses
+
+Trial Summary:
+	Average rtt: 9933
+	Max rtt: 19743
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	Found address 10.4.11.242
+	found 1 addresses
+
+Trial Summary:
+	Average rtt: 7905
+	Max rtt: 19738
+	Average Error rate: 0.010000
+	Highest error rate: 0.030000
+	Found address 10.4.11.248
+	found 1 addresses
+
+Trial Summary:
+	Average rtt: 3373
+	Max rtt: 9704
+	Average Error rate: 0.333333
+	Highest error rate: 1.000000
+	Found address 10.4.11.229
+	found 1 addresses
+
+Trial Summary:
+	Average rtt: 8888
+	Max rtt: 19647
+	Average Error rate: 0.010000
+	Highest error rate: 0.030000
+	Found address 10.4.11.226
+	found 1 addresses
+
+Trial Summary:
+	Average rtt: 6966
+	Max rtt: 19651
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	Found address 10.4.11.214
+	Found address 10.4.11.226
+	found 2 addresses
+
+Trial Summary:
+	Average rtt: 12259
+	Max rtt: 20556
+	Average Error rate: 0.001111
+	Highest error rate: 0.010000
+	Found address 10.4.11.226
+	Found address 10.4.11.238
+	found 2 addresses
+
+Trial Summary:
+	Average rtt: 9870
+	Max rtt: 10491
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	Found address 10.4.11.218
+	Found address 10.4.11.226
+	found 2 addresses
+
+Trial Summary:
+	Average rtt: 8742
+	Max rtt: 10330
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	Found address 10.4.11.226
+	Found address 10.4.11.251
+	found 2 addresses
+
+Trial Summary:
+	Average rtt: 15118
+	Max rtt: 29273
+	Average Error rate: 0.001111
+	Highest error rate: 0.010000
+	Found address 10.4.11.216
+	Found address 10.4.11.226
+	found 2 addresses

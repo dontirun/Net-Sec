@@ -1,0 +1,60 @@
+Trial Summary:
+	Average rtt: 1961
+	Max rtt: 9637
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 7992
+	Max rtt: 9620
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 1886
+	Max rtt: 9510
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 4899
+	Max rtt: 9432
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 9367
+	Max rtt: 9427
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 12863
+	Max rtt: 19232
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 12727
+	Max rtt: 19149
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 5389
+	Max rtt: 10116
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 745
+	Max rtt: 1031
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
+Trial Summary:
+	Average rtt: 5176
+	Max rtt: 10017
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 0
