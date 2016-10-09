@@ -35,6 +35,7 @@ int get_socket_by_in_addr( struct in_addr in, uint16_t port, int* s, struct in_a
 	memset( &(addr.sin_zero), 0, 8 );
 
 
+
 	if( in.s_addr == -1 ) {
 		perror( "resolve\n" );
 		return -1;
@@ -45,6 +46,17 @@ int get_socket_by_in_addr( struct in_addr in, uint16_t port, int* s, struct in_a
 		perror("socket\n");
 		return -1;
 	}
+	struct timeval timeout;
+	timeout.tv_sec = 1;
+	timeout.tv_usec = 0;
+	if (setsockopt (*s, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+		perror( "SO_RCVTIME0" );
+		return -1;
+	}
+	if (setsockopt (*s, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+		perror( "SO_SNDTIME0" );
+		return -1;
+	}
 
 	int yes = 0;
 	//Allows us to reuse ports as they wait for the kernel to clear them
@@ -52,6 +64,7 @@ int get_socket_by_in_addr( struct in_addr in, uint16_t port, int* s, struct in_a
 		perror( "SO_REUSEADDR\n" );
 		return -1;
 	}
+	//Todo, socket timeout
 	if( bind_to_addr( *s, srcip ) ) {
 		return -1;
 	}

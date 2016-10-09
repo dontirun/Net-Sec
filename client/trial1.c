@@ -11,18 +11,18 @@
 
 #define NUM_ISPS (3)
 #define CLIENTS_PER_ISP (3)
-#define HOST ((unsigned char*)"www.google.com")
-#define DNS "208.67.222.222"
-#define NUM_ATTEMPTS 20
+#define HOST ((unsigned char*)"natdaemon.com")
+#define DNS "10.4.11.193"
+#define NUM_ATTEMPTS 1
 
 int main( int argc, char** argv ) {
 
 	const char* resolver_ips[NUM_ISPS] = 
-	{ "10.4.11.65", "10.4.11.129", "10.4.11.193" };
+	{ "10.4.11.65", "10.4.11.129", "10.4.11.9" };
 	const char* client_ips[NUM_ISPS][CLIENTS_PER_ISP] = {
 		{"10.4.11.66", "10.4.11.67","10.4.11.68" },
 		{"10.4.11.130", "10.4.11.131","10.4.11.132" },
-		{"10.4.11.194", "10.4.11.195","10.4.11.196" },
+		{"10.4.11.10", "10.4.11.11","10.4.11.12" },
 	};
 	pthread_t threads[NUM_ISPS][CLIENTS_PER_ISP];
 	struct client_in args[NUM_ISPS][CLIENTS_PER_ISP];

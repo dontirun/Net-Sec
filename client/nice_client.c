@@ -87,8 +87,10 @@ int sockopt_callback( void* clientp, curl_socket_t curlfd, curlsocktype purpose 
 
 size_t write_callback( char* ptr, size_t size, size_t nmemb, void* userdata ) {
 	char* page = (char*)(userdata);
-	printf( "%d\n", nmemb );
-	if( strstr( page, "natdaemon" ) == 0 ) { //failure
+	printf( "got %lu bytes!\n", nmemb );
+	printf( "%s\n", ptr );
+	if( strstr( page, "natdaemon" ) == NULL ) { //failure
+		printf("No natdaemon found\n");
 		return -1;
 	}
 	// We should verify data here TODO
@@ -104,19 +106,20 @@ CURL* setup_curl( uint16_t nport, struct in_addr srcip ) {
 		return NULL;
 	}
 	char* iface_str = inet_ntoa( srcip );
-	//char* a_ip = inet_ntoa( addr );
-	//TODO error checking
 	CURLcode err;
 	err = curl_easy_setopt( handle, CURLOPT_SOCKOPTFUNCTION, sockopt_callback );
 	if( err != CURLE_OK ) { return NULL; }
 	err = curl_easy_setopt( handle, CURLOPT_INTERFACE, iface_str );
-	if( err != CURLE_OK ) {
-		perror( "CURLOPT_INTERFACE" );
-		return NULL; 
-	}
+	if( err != CURLE_OK ) { return NULL; }
 	err = curl_easy_setopt( handle, CURLOPT_PORT, ntohs( nport ) );
 	if( err != CURLE_OK ) { return NULL; }
 	err = curl_easy_setopt( handle, CURLOPT_WRITEFUNCTION, write_callback );
+	if( err != CURLE_OK ) { return NULL; }
+	err = curl_easy_setopt( handle, CURLOPT_TIMEOUT_MS, 2000 );
+	if( err != CURLE_OK ) { return NULL; }
+	err = curl_easy_setopt( handle, CURLOPT_CONNECTTIMEOUT, 2 );
+	if( err != CURLE_OK ) { return NULL; }
+	err = curl_easy_setopt( handle, CURLOPT_NOSIGNAL, 1 );
 	if( err != CURLE_OK ) { return NULL; }
 	return handle;
 }
@@ -128,6 +131,10 @@ int get_rtt_curl(CURL* handle, const unsigned char* host, struct DNS_RESOLVER* r
 
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 	struct in_addr n_addr = resolve( res, host );
+	if( n_addr.s_addr == -1 ) {
+		printf( "Resolve failed\n");
+		return -1;
+	}
 	err = curl_easy_setopt( handle, CURLOPT_URL, inet_ntoa( n_addr ) );
 	if( err != CURLE_OK ) { return -1; }
 	err = curl_easy_perform( handle );

@@ -45,6 +45,11 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 
 
 	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); //UDP packet for DNS queries
+	struct timeval t;
+	t.tv_sec = 2;
+	t.tv_usec = 0;
+	setsockopt( s, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof( t ) );
+	setsockopt( s, SOL_SOCKET, SO_SNDTIMEO, &t, sizeof( t ) );
 	bind_to_addr( s, res->local_addr ); //local addr and random port
 
 	dest.sin_family = AF_INET;
@@ -79,6 +84,7 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 				(struct sockaddr*)&dest,sizeof(dest)) < 0)
 	{
 		perror("sendto failed");
+		return NULL;
 	}
 	//Receive the answer
 	i = sizeof dest;
@@ -91,6 +97,7 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 				(socklen_t*)&i ) < 0)
 	{
 		perror("recvfrom failed");
+		return NULL;
 	}
 
 
@@ -295,6 +302,7 @@ struct in_addr resolve( struct DNS_RESOLVER* res, const unsigned char* hostname 
 	// Nothing in the cache, query and add to cache
 	struct RES_RECORD* resp = query_dns( res, hostname, T_A );
 	if( resp == NULL ) {
+		pthread_mutex_unlock( &( res->rwlock ) );
 		ret.s_addr = -1;
 		return ret;
 	}
@@ -344,7 +352,6 @@ void print_header( uint8_t* header, size_t len ) {
  * Binds a socket to a particular interface.
  * Useful when you have one machine, and are testing using multiple IP aliases
  * Requires root permission
- */
 int bind_to_iface( int sock, const char* iface ) {
 	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE,
 				iface, strlen( iface )) < 0) {
@@ -352,7 +359,7 @@ int bind_to_iface( int sock, const char* iface ) {
 	}
 	return 0;
 }
-
+ */
 int bind_to_addr( int sock, struct in_addr addr ) {
 	struct sockaddr_in sa;
 	sa.sin_family = AF_INET;

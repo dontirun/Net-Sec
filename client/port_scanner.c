@@ -98,7 +98,4 @@ void* spawn_pscan( void* arg ) {
 	out->found = calloc( c_hits, sizeof( *(out->found) ) );
 	memset( out->found, c_hits, c_hits*sizeof(*hits));
 	return out;
-
-
-
 }

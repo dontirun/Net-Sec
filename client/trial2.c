@@ -12,18 +12,18 @@
 
 
 #define NUM_ISPS (3)
-#define CLIENTS_PER_ISP (4)
+#define CLIENTS_PER_ISP (3)
 #define HOST ((unsigned char*)"google.com")
-#define DNS "208.67.222.222"
+#define DNS "10.4.11.193"
 #define NUM_ATTEMPTS 20
 
 int main( int argc, char** argv ) {
 	const char* resolver_ips[NUM_ISPS] = 
-	{ "10.4.11.65", "10.4.11.129", "10.4.11.193" };
+	{ "10.4.11.65", "10.4.11.129", "10.4.11.9" };
 	const char* client_ips[NUM_ISPS][CLIENTS_PER_ISP] = {
 		{"10.4.11.66", "10.4.11.67","10.4.11.68" },
 		{"10.4.11.130", "10.4.11.131","10.4.11.132" },
-		{"10.4.11.194", "10.4.11.195","10.4.11.196" },
+		{"10.4.11.10", "10.4.11.11","10.4.11.12" },
 	};
 	pthread_t threads[NUM_ISPS][CLIENTS_PER_ISP];
 	struct client_in args[NUM_ISPS][CLIENTS_PER_ISP];
@@ -54,10 +54,10 @@ int main( int argc, char** argv ) {
 		}
 	}
 
-	inet_aton( "216.58.217.140", &(scanner_attr.start) );
-	inet_aton( "216.58.217.148", &(scanner_attr.stop) );
+	inet_aton( "10.4.11.0", &(scanner_attr.start) );
+	inet_aton( "10.4.11.254", &(scanner_attr.stop) );
 	scanner_attr.nport = htons( 80 );
-	inet_aton( "10.4.11.69", &(scanner_attr.srcip ) );
+	inet_aton( "10.4.11.13", &(scanner_attr.srcip ) );
 	pthread_create( &pscan_thread, NULL, &spawn_pscan, &scanner_attr );
 
 	for( i = 0; i < NUM_ISPS; i++ ) {

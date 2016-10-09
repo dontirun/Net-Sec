@@ -17,8 +17,8 @@
 #define DNS "208.67.222.222"
 #define NUM_ATTEMPTS 20
 
-#define IP_SPACE_START "216.58.217.140"
-#define IP_SPACE_END "216.58.217.150"
+#define IP_SPACE_START "10.4.11.194"
+#define IP_SPACE_END "10.4.11.254"
 
 int main( int argc, char** argv ) {
 	const char* resolver_ips[NUM_ISPS] = 
@@ -59,7 +59,7 @@ int main( int argc, char** argv ) {
 	inet_aton( IP_SPACE_START , &(scanner_attr.start) );
 	inet_aton( IP_SPACE_END, &(scanner_attr.stop) );
 	scanner_attr.nport = htons( 80 );
-	inet_aton( "10.4.11.193", &(scanner_attr.srcip ) );
+	inet_aton( "10.4.11.10", &(scanner_attr.srcip ) );
 	pthread_create( &pscan_thread, NULL, &spawn_pscan, &scanner_attr );
 
 	for( i = 0; i < NUM_ISPS; i++ ) {
