@@ -11,7 +11,7 @@ def clientthread(conn):
         data = conn.recv(20)
         pkt = data.strip().split(';')
 	print pkt
-	reply = 'ACK;{};{}'.format(pkt[1], 50)
+	reply = 'ACK;{};{}'.format('10.4.11.194', 50)
         if not data:
             break
         conn.sendall(reply)

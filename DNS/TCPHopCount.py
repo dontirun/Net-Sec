@@ -13,7 +13,7 @@ def exit(s):
     sys.exit(0)
 
 def NAT_update(ip):
-    s.send('ADD;{}'.format(ip))
+    s.send('BAN;{}'.format(ip))
     ack = s.recv(25)
 
     ipback = ack.strip().rstrip('\x00').split(';')
@@ -21,29 +21,9 @@ def NAT_update(ip):
 
     return (ipback[1],int(ipback[2]))
 
-def handle_dns(pkt):
-
-    ip = IP()
-    udp = UDP()
-    ip.src = pkt[IP].src
-    ip.dst = pkt[IP].dst
-    udp.sport = pkt[UDP].sport
-    udp.dport = pkt[UDP].dport
-
-    print "SRC " + ip.src
-    print "DST " + ip.dst
-
-    logging.info('NAT ADD sent')    
-    natreply = NAT_update(pkt[IP].dst)
-    logging.info('NAT ACK received')
-
-    qd = pkt[UDP].payload
-    dns = DNS(id = qd.id, qr = 1, qdcount = 1, ancount = 1, nscount = 1, rcode = 0)
-    dns.qd = qd[DNSQR]
-    dns.an = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
-    dns.ns = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
-    dns.ar = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
-    send(ip/udp/dns)
+def handle_tcp(pkt):
+    print pkt[IP].ttl
+    return True
 
 def handle_packet(packet):
     data = packet.get_payload()
@@ -53,9 +33,15 @@ def handle_packet(packet):
 
     if proto is 0x11 and pkt[IP].src != '127.0.0.1':
         print "UDP PACKET"
-        if pkt[UDP].sport is 53:
+        if pkt[UDP].dport is 53:
             print "DNS ANSWER"
             dns = handle_dns(pkt)
+            if dns == True:
+                packet.accept()
+            else:
+                packet.drop()
+        else:
+            packet.accept()
     else:
     	packet.accept()
 
@@ -83,7 +69,7 @@ def main(argv):
     nfqueue.bind(qnum, handle_packet)
 
     FORMAT = '%(asctime)-15s %(message)s'
-    logging.basicConfig(filename='times.log', level=logging.DEBUG, format=FORMAT)
+    logging.basicConfig(filename='filtertimes.log', level=logging.DEBUG, format=FORMAT)
     logging.info("NEW TRIAL")
 
     try:
