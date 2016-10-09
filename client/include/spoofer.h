@@ -5,6 +5,9 @@
 
 #define IP_HEADER_BYTES 20
 #define TCP_PROTOCOL 6
+#define UDP_HEADER_BYTES 8
+#define UDP_PROTOCOL 0x11
+
 
 #define TCP_HEADER_BYTES 20
 

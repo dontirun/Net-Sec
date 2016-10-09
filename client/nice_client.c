@@ -61,7 +61,7 @@ void* spawn_client( void* arg ) {
 			errs++;
 		}
 		rtt_sum += rtt;
-		sleep( 1 );
+		usleep( 1000 );
 	}
 	curl_easy_cleanup( handle );
 
@@ -86,10 +86,7 @@ int sockopt_callback( void* clientp, curl_socket_t curlfd, curlsocktype purpose 
 }
 
 size_t write_callback( char* ptr, size_t size, size_t nmemb, void* userdata ) {
-	char* page = (char*)(userdata);
-	printf( "got %lu bytes!\n", nmemb );
-	printf( "%s\n", ptr );
-	if( strstr( page, "natdaemon" ) == NULL ) { //failure
+	if( strstr( ptr, "natdaemon" ) == NULL ) { //failure
 		printf("No natdaemon found\n");
 		return -1;
 	}
@@ -132,14 +129,15 @@ int get_rtt_curl(CURL* handle, const unsigned char* host, struct DNS_RESOLVER* r
 	clock_gettime(CLOCK_MONOTONIC, &t_start);
 	struct in_addr n_addr = resolve( res, host );
 	if( n_addr.s_addr == -1 ) {
-		printf( "Resolve failed\n");
 		return -1;
 	}
-	err = curl_easy_setopt( handle, CURLOPT_URL, inet_ntoa( n_addr ) );
+	char addr_str[20];
+	inet_ntop( AF_INET, &n_addr, addr_str, 20 );
+	err = curl_easy_setopt( handle, CURLOPT_URL, addr_str );
 	if( err != CURLE_OK ) { return -1; }
 	err = curl_easy_perform( handle );
 	if( err != CURLE_OK ) { 
-		perror( "curl_easy_perform" );
+		//perror( "curl_easy_perform" );
 		return -1; 
 	}
 	clock_gettime(CLOCK_MONOTONIC, &t_end);

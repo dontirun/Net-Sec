@@ -97,4 +97,6 @@ struct RES_RECORD* query_dns ( const struct DNS_RESOLVER* res, const unsigned ch
 // call this last
 int dns_cleanup( struct DNS_RESOLVER* );
 
+void print_header( uint8_t* header, size_t len );
+
 #endif

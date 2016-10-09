@@ -83,7 +83,7 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 				0,
 				(struct sockaddr*)&dest,sizeof(dest)) < 0)
 	{
-		perror("sendto failed");
+		//perror("sendto failed");
 		return NULL;
 	}
 	//Receive the answer
@@ -96,7 +96,7 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 				(struct sockaddr*)&dest,
 				(socklen_t*)&i ) < 0)
 	{
-		perror("recvfrom failed");
+		//perror("recvfrom failed");
 		return NULL;
 	}
 
