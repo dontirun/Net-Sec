@@ -2,7 +2,7 @@
  * Author: Sai Kiran Vadlamudi
  * Date: 10/08/2016
  */
- 
+
 #include "NATServer.h"
 
 // Private Prototypes
@@ -89,6 +89,7 @@ int main(int argc, char **argv) {
     data->list = mappingList;
     data->expirationTime = getExpirationTimeMap;
     data->expirationAction = handleExpiredMap;
+    
     int responseCode = pthread_create(mappingCleaner, NULL, removeExpiredMappings, data);
     if(responseCode) {
         printf("Error - Cannot create thread to remove mappings, Code: %d\n", responseCode);
@@ -119,10 +120,9 @@ int main(int argc, char **argv) {
         cliSize = sizeof(cliAddr);   
         int* cliSock = malloc(sizeof(int));
         *cliSock = accept(sockfd, (struct sockaddr *)&cliAddr, &cliSize);
-        if(cliSock < 0) {
+        if(*cliSock < 0) {
             if(quit == 1)
                 break;
-            perror("Error - Cannot accept client\n");
             continue;
         }
         
@@ -203,6 +203,9 @@ void checkAddRule(char *preCheckRule, char* command, char *postCheckRule) {
         if(!system(checkCommand))
             system(applyCommand);
     }
+
+    free(checkCommand);
+    free(applyCommand);
 }
 
 /**
@@ -219,16 +222,13 @@ void insertNATAccessRules() {
     checkAddRule("sudo iptables -t filter", "-A", "INPUT -p tcp --dport ssh -j ACCEPT");
     asprintf(&command, "INPUT -s %s -j ACCEPT", SERVERIP);
     checkAddRule("sudo iptables -t filter", "-A", command);
+    free(command);
+
     asprintf(&command, "INPUT -s %s -j ACCEPT", DNSIP);
     checkAddRule("sudo iptables -t filter", "-A", command);
-    system("sudo iptables -t filter -P INPUT DROP");
-
-    // Filter packets being Forwarded
-    asprintf(&command, "FORWARD -p udp -d %s -j ACCEPT", DNSIP);
-    checkAddRule("sudo iptables -t filter", "-A", command);
-    system("sudo iptables -t filter -P FORWARD DROP");
-
     free(command);
+
+    system("sudo iptables -t filter -P INPUT DROP");
 }
 
 /*
@@ -244,16 +244,13 @@ void deleteNATAccessRules() {
     system("sudo iptables -t filter -P INPUT ACCEPT");
     checkAddRule("sudo iptables -t filter", "-D", "INPUT -i lo -j ACCEPT");
     checkAddRule("sudo iptables -t filter", "-D", "INPUT -p tcp --dport ssh -j ACCEPT");
+
     asprintf(&command, "INPUT -s %s -j ACCEPT", SERVERIP);
     checkAddRule("sudo iptables -t filter", "-D", command);
+    free(command);
+
     asprintf(&command, "INPUT -s %s -j ACCEPT", DNSIP);
     checkAddRule("sudo iptables -t filter", "-D", command);
-
-    // Remove filters for packets being Forwarded
-    system("sudo iptables -t filter -P FORWARD ACCEPT");
-    asprintf(&command, "FORWARD -p udp -d %s -j ACCEPT", DNSIP);
-    checkAddRule("sudo iptables -t filter", "-D", command);
-
     free(command);
 }
 
@@ -283,7 +280,7 @@ int cmpMaps(void* elm1, void *elm2) {
     }
     
     if(map1->publicIP != NULL) {
-        publicCompare = strcmp(map1->ispPrefix, map2->ispPrefix);
+        publicCompare = strcmp(map1->publicIP, map2->publicIP);
         numMatchedFields += publicCompare == 0 ? 1 : 0;
         numFields++;
     }
@@ -320,28 +317,31 @@ time_t getExpirationTimeMap(void *elm) {
 void handleExpiredMap(void *elm) {
     Mapping *map = (Mapping *) elm;
     char *command;
+ 
+    printf("Removing mapping from %s to %s\n", map->ispPrefix, map->publicIP);
 
     // Add the mapping for the established connections only
     asprintf(&command, "PREROUTING -s %s -d %s -m conntrack --ctstate ESTABLISHED -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
-    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s  -m conntrack --ctstate ESTABLISHED -j ACCEPT", map->ispPrefix, map->publicIP);
-    checkAddRule("sudo iptables -t filter", "-A", command);
+    free(command);
+
     asprintf(&command, "POSTROUTING -s %s -d %s  -m conntrack --ctstate ESTABLISHED -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
+    free(command);
 
     // Remove the mapping from the iptables
     asprintf(&command, "PREROUTING -s %s -d %s -j DNAT --to %s", map->ispPrefix, map->publicIP, SERVERIP);
     checkAddRule("sudo iptables -t nat", "-D", command);
-    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s -j ACCEPT", map->ispPrefix, map->publicIP);
-    checkAddRule("sudo iptables -t filter", "-D", command);
+    free(command);
+
     asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, map->ispPrefix, map->publicIP);
     checkAddRule("sudo iptables -t nat", "-D", command);
+    free(command);
 
     // Free resources
     free(map->ispPrefix);
     free(map->publicIP);
     free(map);
-    free(command);
 }
 
 /**
@@ -357,6 +357,7 @@ void handleExpiredBan(void *elm) {
     // Remove the ban
     asprintf(&command, "FORWARD -s %s -j DROP", map->ispPrefix);
     checkAddRule("sudo iptables -t filter", "-D", command);
+    printf("Unbanning IP: %s\n", map->ispPrefix);
 
     // Free Resources
     free(map->publicIP);
@@ -378,19 +379,24 @@ void handleExpiredBan(void *elm) {
  */
 void* handleClientConnections(void* socket) {
     int cliSock = *((int *)socket);
+    printf("Handling Client on Socket: %d\n", cliSock);
 
     while(!quit) {
         // Recieve Request
         char *messagePtr = NULL;
         recv_all(&messagePtr, cliSock);
-        
+
         // Check quit flag after read call is unblocked 
-        if(quit)
+        if(quit) {
+	    free(messagePtr);
             break;
+	}
         
         // Check request is valid
-        if(strlen(messagePtr) <= 0)
-            continue;
+        if(strlen(messagePtr) <= 0) {
+            free(messagePtr);
+	    continue;
+	}
         
         // Create Request
         Request *request = malloc(sizeof(Request));
@@ -408,6 +414,7 @@ void* handleClientConnections(void* socket) {
                 
         // Detach thread
         pthread_detach(*thread);
+	free(thread);
     }
 
     // Close Socket
@@ -429,23 +436,40 @@ void* handleClientConnections(void* socket) {
  * Handle the request of the client in a separate thread
  */
 void* handleRequest(void *request) {
-    char *mappedIP; 
-    int mappingTTL = 0;
+    char *mappedIP = NULL; 
+    int mappingTTL = 0, addRequest = 1;
 
     // Convert given pointer to actual type
     char *message = ((Request *)request)->message;
     int cliSock = ((Request *) request)->socket;
     
-    if(strlen(message) <= 0)
-        return NULL;
+    if(strlen(message) <= 0) {
+        pthread_exit(0);
+    }
     
     // Retrive the Command and the IP from the request
     char *command = strtok(message, ";");
     char *ip = strtok(NULL, ";");
 
+    if(ip == NULL || strlen(ip) < 7 || strlen(ip) > 12) {
+        free(request);
+	if(message != NULL)
+	    free(message);
+
+        pthread_exit(0);
+    } else if(command == NULL || strlen(command) < 3 || strlen(command) > 3) {
+        free(request);
+	if(message != NULL)
+	    free(message);
+
+        pthread_exit(0);
+    }
+
+    printf("Command: %s, IP: %s\n", command, ip);
+
     // Act based on the command
     if(strcmp(command, "ADD") == 0) {
-        // Create mapping for the given IP
+	// Create mapping for the given IP
         SuccessMapping *sm = manipulateMapping(ip);
         mappedIP = sm->mappedIP;
         mappingTTL = sm->mapTTL;
@@ -458,14 +482,17 @@ void* handleRequest(void *request) {
         }
     } else if(strcmp(command, "BAN") == 0) {
         // Blacklist given IP
-        char *command;
-        asprintf(&command, "FORWARD -s %s -j DROP", ip);
-        checkAddRule("sudo iptables -t filter", "-A", command);
+	addRequest = 0;
+        char *rule;
+        asprintf(&rule, "FORWARD -s %s -j DROP", ip);
+        checkAddRule("sudo iptables -t filter", "-A", rule);
+	free(rule);
         mappedIP = ip;
+	mappingTTL = EXPIRATIONTIMESECONDS + GRACEPERIODSECONDS;
 
         // Add IP to banned list
         Mapping *map = malloc(sizeof(Mapping));
-        time(&map->time);
+        time(&(map->time));
         map->ispPrefix = strdup(ip);
         pthread_mutex_lock(&bannedListLock);
         insertElement(bannedList, map);
@@ -474,14 +501,16 @@ void* handleRequest(void *request) {
 
     // Send response with mapping
     char *resp;
-    int respSize = asprintf(&resp, "ACK;%s;%d", mappedIP, mappingTTL) + 1;
+    int respSize = asprintf(&resp, "ACK;%s;%d", mappedIP, mappingTTL);
     send_all(resp, respSize, cliSock);
 
     // Free resources
     free(resp);
-    free(message);
     free(request);
-    free(mappedIP);
+    if(message != NULL)
+        free(message);
+    if(mappedIP != NULL && addRequest == 1)
+        free(mappedIP); 
 
     // Destroy request thread
     pthread_exit(0);
@@ -497,8 +526,8 @@ void* handleRequest(void *request) {
  */
 SuccessMapping* manipulateMapping(char *ip) {
     int cp1, cp2, cp3, cp4;
-    char *ispPrefix, *publicIP;
-    time_t t;
+    char *ispPrefix = NULL, *publicIP = NULL;
+    time_t timeNow = 0;
 
     // Separate the Client IP into the four parts
     sscanf(ip, "%d.%d.%d.%d\n", &cp1, &cp2, &cp3, &cp4);
@@ -517,12 +546,16 @@ SuccessMapping* manipulateMapping(char *ip) {
     pthread_mutex_unlock(&mappingListLock);
     
     if(match != NULL) {
-        // Check for match times within 5 minutes
-        time(&t);   
-        if(match->time + EXPIRATIONTIMESECONDS < t) {
+	// Check for non-expired mappings
+        time(&timeNow);   
+        if(timeNow - match->time < EXPIRATIONTIMESECONDS) {
             SuccessMapping *map = malloc(sizeof(SuccessMapping));
             map->mappedIP = strdup(match->publicIP);
-            map->mapTTL = EXPIRATIONTIMESECONDS - (match->time - t);
+            map->mapTTL = EXPIRATIONTIMESECONDS - (timeNow - match->time);
+
+	    free(searchMap->ispPrefix);
+	    free(searchMap);
+
             return map;
         }
     } 
@@ -530,7 +563,10 @@ SuccessMapping* manipulateMapping(char *ip) {
     // Randomly generate an int within range of public IPs that isn't being used'
     int matchFound = 0;
     do {
-        srand((unsigned) time(&t));
+	if(publicIP != NULL)
+	    free(publicIP);
+
+        srand((unsigned) time(&timeNow));
         int i = rand() % (PUBLICIPRANGEEND - PUBLICIPRANGESTART + 1) + PUBLICIPRANGESTART;
         asprintf(&publicIP, SERVERFLUXCLASSAADDRESS, i);
 
@@ -547,19 +583,21 @@ SuccessMapping* manipulateMapping(char *ip) {
         else
             matchFound = 0;
     } while(matchFound);
-    
+
     // Add mappings to IPTables
     char *command;
     asprintf(&command, "PREROUTING -s %s -d %s -j DNAT --to %s", ispPrefix, publicIP, SERVERIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
-    asprintf(&command, "FORWARD -p tcp --dport http -s %s -d %s -j ACCEPT", ispPrefix, publicIP);
-    checkAddRule("sudo iptables -t filter", "-A", command);
+    free(command);
+
     asprintf(&command, "POSTROUTING -s %s -d %s -j SNAT --to %s", SERVERIP, ispPrefix, publicIP);
     checkAddRule("sudo iptables -t nat", "-A", command);
+    free(command);
 
     // Store mapping information and time
     Mapping *map = malloc(sizeof(Mapping));
-    time(&(map->time));
+    time(&timeNow);
+    map->time = timeNow;
     map->ispPrefix = strdup(ispPrefix);
     map->publicIP = strdup(publicIP);
     
@@ -573,8 +611,8 @@ SuccessMapping* manipulateMapping(char *ip) {
     sm->mapTTL = EXPIRATIONTIMESECONDS;
 
     // Free resources
-    free(command);
     free(ispPrefix);
+    free(searchMap);
     
     return sm;
 }

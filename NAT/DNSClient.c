@@ -80,44 +80,50 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    // Construct the GET Request (Test Remove #TODO)
-    char NATRequest[20];
-    int NATRLength = sprintf(NATRequest, "ADD;192.168.1.1");
+    for(i = 0; i < 10; i++) {
 
-    // Send Request to Server
-    int sent = 0;
-    int bytes = 0;
-    do {
-        gettimeofday(&startTime, NULL); // Start Timer
-        bytes = write(sockfd, NATRequest + sent, NATRLength - sent);
-        if(bytes < 0) {
-            perror("ERROR - Cannot write to Socket\n");
-            exit(1);
-        } else if(bytes == 0)
-            break;
-        sent += bytes;
-    } while(sent < NATRLength);
+	printf("%d\n", i);
 
-    // Recieve Response from Server
-    char response[MAXRESPONSESIZE];
-    memset(response, 0, sizeof(response));
-    do {
-        bytes = read(sockfd, response, MAXRESPONSESIZE);
-	gettimeofday(&stopTime, NULL); // Stop Timer
-        int i;
-        for(i = 0; i < MAXRESPONSESIZE; i++) {
-	    if(response[i] == '\0')
+	// Construct the GET Request (Test Remove #TODO)
+	char *NATRequest;
+	int NATRLength = asprintf(&NATRequest, "ADD;192.168.1.%d", i);
+	printf("Request: %s\n", NATRequest);
+
+	// Send Request to Server
+	int sent = 0;
+	int bytes = 0;
+	do {
+            gettimeofday(&startTime, NULL); // Start Timer
+            bytes = write(sockfd, NATRequest + sent, NATRLength - sent);
+            if(bytes < 0) {
+                perror("ERROR - Cannot write to Socket\n");
+                exit(1);
+            } else if(bytes == 0)
                 break;
-        }
-	printf("%s\n", response);
+            sent += bytes;
+        } while(sent < NATRLength);
+
+        // Recieve Response from Server
+        char response[MAXRESPONSESIZE];
         memset(response, 0, sizeof(response));
-        if(bytes < 0) {
-            perror("ERROR - Cannot read from Socket\n");
-            exit(1);
-        }
-        if(bytes == 0)
-            break;
-    } while(1);
+        do {
+            bytes = read(sockfd, response, MAXRESPONSESIZE);
+	    gettimeofday(&stopTime, NULL); // Stop Timer
+            int i;
+            for(i = 0; i < MAXRESPONSESIZE; i++) {
+	        if(response[i] == '\0')
+                    break;
+            }
+	    printf("%s\n", response);
+            memset(response, 0, sizeof(response));
+            if(bytes < 0) {
+                perror("ERROR - Cannot read from Socket\n");
+                exit(1);
+            }
+            if(bytes > 0)
+                break;
+        } while(1);
+    }
 
     // Close Socket
     close(sockfd);
