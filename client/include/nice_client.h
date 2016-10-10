@@ -16,6 +16,7 @@ struct client_out {
 	int retcode;
 	uint32_t avg_rtt;
 	uint32_t errs;
+	uint32_t max_rtt;
 };
 
 void* spawn_client( void* arg );

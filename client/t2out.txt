@@ -1,0 +1,374 @@
+Trial Summary:
+	Average rtt: 187267
+	Max rtt: 2168148
+	Average Error rate: 0.022222
+	Highest error rate: 0.200000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 20372
+	Max rtt: 161317
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 243528
+	Max rtt: 2001947
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 21002
+	Max rtt: 157914
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 192723
+	Max rtt: 1803360
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 18684
+	Max rtt: 136662
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 273019
+	Max rtt: 2719432
+	Average Error rate: 0.022222
+	Highest error rate: 0.200000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 18453
+	Max rtt: 148339
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 143893
+	Max rtt: 1497585
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 22308
+	Max rtt: 153677
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 133047
+	Max rtt: 1337549
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 18203
+	Max rtt: 140528
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 110508
+	Max rtt: 1305489
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 20721
+	Max rtt: 163543
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 182407
+	Max rtt: 2101642
+	Average Error rate: 0.022222
+	Highest error rate: 0.200000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 23179
+	Max rtt: 159513
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 201474
+	Max rtt: 1934957
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 22408
+	Max rtt: 171742
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 189082
+	Max rtt: 1879586
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 18187
+	Max rtt: 137817
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 169904
+	Max rtt: 1643813
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 22460
+	Max rtt: 145139
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 140340
+	Max rtt: 1480791
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 17506
+	Max rtt: 133922
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 136415
+	Max rtt: 1329707
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 17054
+	Max rtt: 137313
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 107327
+	Max rtt: 1178812
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 17897
+	Max rtt: 132346
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 185803
+	Max rtt: 2138135
+	Average Error rate: 0.022222
+	Highest error rate: 0.200000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 22407
+	Max rtt: 156218
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 211755
+	Max rtt: 1896919
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 18726
+	Max rtt: 146812
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 184786
+	Max rtt: 1849669
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 19219
+	Max rtt: 140890
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 157472
+	Max rtt: 1583718
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 17796
+	Max rtt: 136318
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 166789
+	Max rtt: 1482309
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 23828
+	Max rtt: 161388
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 120696
+	Max rtt: 1328120
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 20193
+	Max rtt: 150835
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 112398
+	Max rtt: 1177849
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 22723
+	Max rtt: 167552
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 182887
+	Max rtt: 2081815
+	Average Error rate: 0.022222
+	Highest error rate: 0.200000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 20578
+	Max rtt: 134872
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 267951
+	Max rtt: 1880095
+	Average Error rate: 0.200000
+	Highest error rate: 0.600000
+	found 0 addresses
+Trial Summary:
+	Average rtt: 81582
+	Max rtt: 979683
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 48351
+	Max rtt: 288277
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 2 addresses
+Trial Summary:
+	Average rtt: 70879
+	Max rtt: 818399
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 47118
+	Max rtt: 280785
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 68358
+	Max rtt: 705631
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 36910
+	Max rtt: 234113
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 62195
+	Max rtt: 630768
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 36036
+	Max rtt: 222803
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 50436
+	Max rtt: 447286
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 42557
+	Max rtt: 259053
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 104990
+	Max rtt: 1258509
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 45894
+	Max rtt: 285570
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 96665
+	Max rtt: 1189689
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 45821
+	Max rtt: 279795
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 96155
+	Max rtt: 1065814
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 45185
+	Max rtt: 277230
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Average rtt: 70730
+	Max rtt: 808213
+	Average Error rate: 0.000000
+	Highest error rate: 0.000000
+	found 1 addresses
+Trial Summary:
+	Aver

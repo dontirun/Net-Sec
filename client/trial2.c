@@ -16,7 +16,7 @@
 #define CLIENTS_PER_ISP (3)
 #define HOST ((unsigned char*)"natdaemon.com")
 #define DNS "10.4.11.193"
-#define NUM_ATTEMPTS 100
+#define NUM_ATTEMPTS 5
 
 void run_trial( void );
 const char* resolver_ips[NUM_ISPS] = 
@@ -35,10 +35,9 @@ struct pscan_in scanner_attr;
 int main( int argc, char** argv ) {
 	curl_global_init( CURL_GLOBAL_NOTHING );
 
-	for( int trial = 0; trial < 10; trial++ ) {
+	for( int trial = 0; trial < 20; trial++ ) {
 		run_trial();
-		sleep( 5 );
-
+		sleep( 1 );
 	}
 	curl_global_cleanup();
 }
@@ -73,16 +72,18 @@ void run_trial( void ) {
 	pthread_create( &pscan_thread, NULL, &spawn_pscan, &scanner_attr );
 
 	uint32_t rtt_avg_sum = 0;
-	uint32_t rtt_avg_max = 0;
+	uint32_t rtt_max = 0;
 	uint32_t errs_sum = 0;
 	uint32_t errs_max = 0;
+	uint32_t total_hits = 0;
 	for( i = 0; i < NUM_ISPS; i++ ) {
 		for( j = 0; j < CLIENTS_PER_ISP; j++ ) {
 			struct client_out *ret = NULL;
 			pthread_join( threads[i][j], (void**)&ret );
 			if( ret->retcode == 0 ) {
+				total_hits++;
 				rtt_avg_sum += ret->avg_rtt;
-				rtt_avg_max = ret->avg_rtt > rtt_avg_max ? ret->avg_rtt : rtt_avg_max;
+				rtt_max = ret->max_rtt > rtt_max ? ret->max_rtt : rtt_max;
 				errs_sum += ret -> errs;
 				errs_max = ret->errs > errs_max ? ret->errs : errs_max;
 			} else {
@@ -92,8 +93,8 @@ void run_trial( void ) {
 		}
 	}
 	printf( "Trial Summary:\n");
-	printf( "\tAverage rtt: %d\n", rtt_avg_sum / ( NUM_ISPS * CLIENTS_PER_ISP ) );
-	printf( "\tMax rtt: %d\n", rtt_avg_max );
+	printf( "\tAverage rtt: %d\n", rtt_avg_sum / ( total_hits ) );
+	printf( "\tMax rtt: %d\n", rtt_max );
 	printf( "\tAverage Error rate: %f\n", (1.0 * errs_sum ) / (NUM_ISPS * CLIENTS_PER_ISP * NUM_ATTEMPTS ));
 	printf( "\tHighest error rate: %f\n", (1.0 * errs_max ) / (NUM_ATTEMPTS ));
 
