@@ -6,6 +6,7 @@ import sys, logging
 
 s = socket(AF_INET, SOCK_STREAM)
 hops = {}
+banned = {}
 # I asked Jesse if he trusted my code, he did, so it should work at some point
 
 def exit(s):
