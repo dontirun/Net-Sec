@@ -111,7 +111,7 @@ void* popElement(LinkedList *list) {
     } else if(list->size == 1) {
         list->head = NULL;
         list->tail = NULL;
-        list->size = 0;
+        list->size--;
 
         void *elm = head->elm;
 
