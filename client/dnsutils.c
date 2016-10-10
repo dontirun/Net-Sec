@@ -45,11 +45,16 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 
 
 	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP); //UDP packet for DNS queries
-	bind_to_iface( s, res->iface );
+	struct timeval t;
+	t.tv_sec = 2;
+	t.tv_usec = 0;
+	setsockopt( s, SOL_SOCKET, SO_RCVTIMEO, &t, sizeof( t ) );
+	setsockopt( s, SOL_SOCKET, SO_SNDTIMEO, &t, sizeof( t ) );
+	bind_to_addr( s, res->local_addr ); //local addr and random port
 
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(53);
-	dest.sin_addr = res->dns_server; //dns servers
+	dest.sin_addr = (res->dns_server); //dns servers
 
 	//Set the DNS structure to standard queries
 	dns = (struct DNS_HEADER *)&buf;
@@ -78,7 +83,8 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 				0,
 				(struct sockaddr*)&dest,sizeof(dest)) < 0)
 	{
-		perror("sendto failed");
+		//perror("sendto failed");
+		return NULL;
 	}
 	//Receive the answer
 	i = sizeof dest;
@@ -90,7 +96,8 @@ struct RES_RECORD* query_dns( const struct DNS_RESOLVER* res,const unsigned char
 				(struct sockaddr*)&dest,
 				(socklen_t*)&i ) < 0)
 	{
-		perror("recvfrom failed");
+		//perror("recvfrom failed");
+		return NULL;
 	}
 
 
@@ -227,7 +234,7 @@ void remove_table_entry( struct DNS_RESOLVER* res, struct DNS_TABLE_ENTRY* entry
 	}
 }
 
-struct DNS_RESOLVER* dns_init( const char* iface, const char* dns_string ) {
+struct DNS_RESOLVER* dns_init( const char* addr, const char* dns_string ) {
 	struct DNS_RESOLVER* ret = malloc( sizeof( *ret ) );
 	if( ret == NULL ) {
 		perror( "malloc" );
@@ -240,7 +247,7 @@ struct DNS_RESOLVER* dns_init( const char* iface, const char* dns_string ) {
 		return NULL;
 	}
 	inet_aton( dns_string, &(ret->dns_server) );
-	ret->iface = iface;
+	inet_aton( addr, &(ret->local_addr ) );
 	return ret;
 }
 
@@ -295,6 +302,7 @@ struct in_addr resolve( struct DNS_RESOLVER* res, const unsigned char* hostname 
 	// Nothing in the cache, query and add to cache
 	struct RES_RECORD* resp = query_dns( res, hostname, T_A );
 	if( resp == NULL ) {
+		pthread_mutex_unlock( &( res->rwlock ) );
 		ret.s_addr = -1;
 		return ret;
 	}
@@ -344,17 +352,24 @@ void print_header( uint8_t* header, size_t len ) {
  * Binds a socket to a particular interface.
  * Useful when you have one machine, and are testing using multiple IP aliases
  * Requires root permission
- */
 int bind_to_iface( int sock, const char* iface ) {
-	struct ifreq ifr;
-	memset( &ifr, 0, sizeof( ifr ) );
-	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), iface);
 	if (setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE,
-				(void *)&ifr, sizeof(ifr)) < 0) {
+				iface, strlen( iface )) < 0) {
 		return -1;
 	}
 	return 0;
-
-
+}
+ */
+int bind_to_addr( int sock, struct in_addr addr ) {
+	struct sockaddr_in sa;
+	sa.sin_family = AF_INET;
+	sa.sin_port = 0; //any port will do
+	sa.sin_addr = addr;
+	memset( sa.sin_zero, 0, 8 );
+	if( bind(sock, (struct sockaddr*)(&sa), sizeof( sa ) ) ) {
+		perror( "bind" );
+		return -1;
+	}
+	return 0;
 }
 

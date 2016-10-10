@@ -7,58 +7,83 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <net/if.h>
+#include <curl/curl.h>
+#include <pthread.h>
 
 #include "include/port_scanner.h"
+#include "include/dnsutils.h"
+#include "include/nice_client.h"
 
-int scan_addr( struct in_addr in, uint16_t port, const char* iface ) {
+struct scan_addr_in {
+	struct in_addr to_scan;
+	uint16_t port;
+	struct in_addr srcip;
+};
 
-	//put the entire request in one string, and store it for later
-	int s;
-	int yes = 0;
-
-	struct sockaddr_in addr;
-	addr.sin_family = AF_INET;
-	addr.sin_addr = in;
-	addr.sin_port = port;
-	memset( &(addr.sin_zero), 0, 8 );
-
-	struct timeval timeout;
-	timeout.tv_sec = 1;
-	timeout.tv_usec = 0;
-
-	s = socket( AF_INET, SOCK_STREAM, 0 );
-	if(s == -1) {
+size_t pwrite_callback( char* ptr, size_t size, size_t nmemb, void* userdata ) {
+	if( strstr( ptr, "natdaemon" ) == NULL ) { //failure
+		printf("No natdaemon found\n");
 		return -1;
 	}
+	// We should verify data here TODO
+	return size*nmemb;
+}
 
-	// set some socket options:
-	
-	// Timeout to 1s
-	if (setsockopt (s, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-		return -1;
-	}
-	if (setsockopt (s, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
-		return -1;
-	}
 
-	// Reuse sockets
-	if( setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) ) {
-		return -1;
-	}
 
-	// Bind to iface
-	struct ifreq ifr;
-	memset( &ifr, 0, sizeof( ifr ) );
-	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), iface);
-	if (setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)) < 0) {
-		return -1;
-	}
+void* scan_addr( void* arg ) {
+	struct scan_addr_in* in = (struct scan_addr_in*)arg;
 
-	if( connect(s, (struct sockaddr*)&addr, sizeof( addr ) ) ) {
-		close(s);
-		return -1;
+	CURL* handle = curl_easy_init( );
+	if( handle == NULL ) {
+		return NULL;
 	}
-	return 0; //we did it
+	int* ret = malloc( sizeof( *ret ) );
+	char iface_str[20];
+	char to_scan_str[20];
+	if( inet_ntop( AF_INET, &(in->to_scan), to_scan_str, 20 ) == NULL ) {
+		*ret = -1; goto finish;
+	}
+	if( inet_ntop( AF_INET, &(in->srcip), iface_str, 20 ) == NULL ) {
+		*ret = -1; goto finish;
+	}
+	CURLcode err;
+
+	//There should be an easier way to do this, like not checking errers...
+
+	//sockopt_callback just sets reusable sockets, it's defined in nice_client.c
+	err = curl_easy_setopt( handle, CURLOPT_SOCKOPTFUNCTION, sockopt_callback );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	err = curl_easy_setopt( handle, CURLOPT_INTERFACE, iface_str );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	err = curl_easy_setopt( handle, CURLOPT_PORT, in->port );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	// sets up callback to verify the webpage is correct, defined in nice_client.c
+	err = curl_easy_setopt( handle, CURLOPT_WRITEFUNCTION, pwrite_callback );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	err = curl_easy_setopt( handle, CURLOPT_TIMEOUT_MS, 2000 );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	err = curl_easy_setopt( handle, CURLOPT_CONNECTTIMEOUT, 2 );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	err = curl_easy_setopt( handle, CURLOPT_NOSIGNAL, 1 );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	err = curl_easy_setopt( handle, CURLOPT_URL, to_scan_str );
+	if( err != CURLE_OK ) { *ret = -1; goto finish; }
+	err = curl_easy_perform( handle );
+	if( err != CURLE_OK ) {
+		// assume a timeout, ret should be 1
+		*ret = 1;
+		goto finish;
+	}
+	// We found a socket, do some stuff
+	*ret = 0;
+	goto finish;
+
+	finish:
+	curl_easy_cleanup( handle );
+
+	return ret;
+
 }
 
 
@@ -73,33 +98,39 @@ void* spawn_pscan( void* arg ) {
 		high = low;
 		low = tmp;
 	}
-	printf("high is %x\n", high );
-	printf("low is %x\n", low );
+	int num_addr = high - low + 1;
 
-	struct in_addr hits[ high - low + 1 ];
+	struct in_addr hits[ num_addr ];
+	pthread_t threads[ num_addr ];
+	struct scan_addr_in addrs[ num_addr ];
+
 	memset( &hits, 0, sizeof( hits ) );
-	int c_hits = 0;
 
 	for( uint32_t i = low; i <= high; i++ ) {
 		//do the port scan
-		struct in_addr tmp;
-		tmp.s_addr = htonl( i );
-		int addr_exists = scan_addr( tmp, in->nport, in->iface);
-		printf( "%s : ", inet_ntoa( tmp ) );
-		if( addr_exists ) {
-			printf("MISS" );
-		} else {
-			printf("HIT" );
-			hits[c_hits++] = tmp;
-		}
-		printf("\n" );
+		struct in_addr tmp = {ntohl( i )};
+		addrs[i-low].to_scan = tmp;
+		addrs[i-low].srcip = in->srcip;
+		addrs[i-low].port = 80;
+		pthread_create( threads+(i - low), NULL, scan_addr, addrs+(i-low) );
+		usleep( 1000 );
 	}
+	int c_found = 0;
+	for( uint32_t i = low; i <= high; i++ ) {
+		int* retcode = NULL;
+		pthread_join( threads[i-low], (void**)&retcode );
+		if( *retcode == 0 ) {
+			hits[c_found].s_addr = ntohl( i );
+			printf( "\tFound address %s\n", inet_ntoa( hits[c_found] ) );
+			c_found++;
+		}
+		free( retcode );
+	}
+
+
 	struct pscan_out* out = malloc( sizeof( *out ) );
-	out->n_found = c_hits;
-	out->found = calloc( c_hits, sizeof( *(out->found) ) );
-	memset( out->found, c_hits, c_hits*sizeof(*hits));
+	out->n_found = c_found;
+	out->found = calloc( c_found, sizeof( *(out->found) ) );
+	memcpy( out->found, hits, c_found*sizeof(*hits));
 	return out;
-
-
-
 }

@@ -17,9 +17,6 @@
 
 #define BIG_BUFFER_SIZE 65535
 
-typedef int retcode;
-
-
 
 //DNS header structure
 struct DNS_HEADER
@@ -79,23 +76,27 @@ struct DNS_RESOLVER {
 	struct DNS_TABLE_ENTRY* head;
 	pthread_mutex_t rwlock;
 	struct in_addr dns_server;
-	const char* iface;
+	struct in_addr local_addr;
 };
 
 //Function Prototypes
 
 // Call this first
-struct DNS_RESOLVER* dns_init( const char* iface, const char* dns_string );
+struct DNS_RESOLVER* dns_init( const char* addr, const char* dns_string );
 
 // most of the time you'll use this
 struct in_addr resolve( struct DNS_RESOLVER* table, const unsigned char* hostname );
 //not really related, but useful
-int bind_to_iface( int sock, const char* iface );
+//int bind_to_iface( int sock, const char* iface );
+
+int bind_to_addr( int sock, struct in_addr addr );
 
 // If you don't trust resolve, or want to send a new query every time
 struct RES_RECORD* query_dns ( const struct DNS_RESOLVER* res, const unsigned char* host, int query_type );
 
 // call this last
 int dns_cleanup( struct DNS_RESOLVER* );
+
+void print_header( uint8_t* header, size_t len );
 
 #endif

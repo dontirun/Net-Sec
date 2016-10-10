@@ -5,7 +5,7 @@
 #include "dnsutils.h"
 
 struct client_in {
-	const char* iface;
+	struct in_addr srcip;
 	const unsigned char* host;
 	uint16_t nport; //network byte order
 	struct DNS_RESOLVER* res;
@@ -19,5 +19,10 @@ struct client_out {
 };
 
 void* spawn_client( void* arg );
+
+int sockopt_callback( void* clientp, curl_socket_t curlfd, curlsocktype purpose );
+
+size_t write_callback( char* ptr, size_t size, size_t nmemb, void* userdata );
+
 
 #endif

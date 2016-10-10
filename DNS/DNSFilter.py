@@ -1,7 +1,7 @@
 from netfilterqueue import NetfilterQueue
 from scapy.all import *
 from socket import *
-import sys
+import sys, logging
 
 s = socket(AF_INET, SOCK_STREAM)
 
@@ -13,14 +13,16 @@ def exit(s):
     sys.exit(0)
 
 def NAT_update(ip):
-    s.send('ADD;{}\0'.format(ip))
-    ack = s.recv(20)
-    print ack
-    ipback = ack.strip().split(';')
-    print ipback[1]
+    s.send('ADD;{}'.format(ip))
+    ack = s.recv(25)
+
+    ipback = ack.strip().rstrip('\x00').split(';')
+    print ipback
+
     return (ipback[1],int(ipback[2]))
 
 def handle_dns(pkt):
+
     ip = IP()
     udp = UDP()
     ip.src = pkt[IP].src
@@ -28,32 +30,34 @@ def handle_dns(pkt):
     udp.sport = pkt[UDP].sport
     udp.dport = pkt[UDP].dport
 
+    print "SRC " + ip.src
+    print "DST " + ip.dst
+
+    logging.info('NAT ADD sent')    
     natreply = NAT_update(pkt[IP].dst)
-    print natreply[0]
-    print natreply[1]
+    logging.info('NAT ACK received')
+
+    qd = pkt[UDP].payload
     dns = DNS(id = qd.id, qr = 1, qdcount = 1, ancount = 1, nscount = 1, rcode = 0)
     dns.qd = qd[DNSQR]
     dns.an = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
     dns.ns = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
     dns.ar = DNSRR(rrname = pkt[UDP][DNSQR].qname, ttl = natreply[1], rdlen = 4, rdata = natreply[0]) 
-    return (ip/udp/dns)
+    send(ip/udp/dns)
 
 def handle_packet(packet):
-    print 'PACKET FOUND'
     data = packet.get_payload()
 
     pkt = IP(data)
     proto = pkt.proto
 
-    if proto is 0x11:
-        print "It's UDP"
-        if pkt[UDP].dport is 53:
-            print "It's DNS"
+    if proto is 0x11 and pkt[IP].src != '127.0.0.1':
+        print "UDP PACKET"
+        if pkt[UDP].sport is 53:
+            print "DNS ANSWER"
             dns = handle_dns(pkt)
-            packet.set_payload(str(dns))
-    	packet.accept()    
-    else: 
-        packet.drop()
+    else:
+    	packet.accept()
 
 def main(argv):
 
@@ -77,6 +81,10 @@ def main(argv):
 
     nfqueue = NetfilterQueue()
     nfqueue.bind(qnum, handle_packet)
+
+    FORMAT = '%(asctime)-15s %(message)s'
+    logging.basicConfig(filename='times.log', level=logging.DEBUG, format=FORMAT)
+    logging.info("NEW TRIAL")
 
     try:
 	print 'RUNNING QUEUE'

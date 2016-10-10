@@ -3,11 +3,11 @@
 //http://www.tcpdump.org/sniffex.c
 
 // to compile
-//gcc -m32 FinalProjectServerListener.c -o test -lm -lpcap
+//gcc FinalProjectServerListener.c -o test -lm -lpcap
 #define SIZE_ETHERNET 14
 
 // lifetime in seconds for hop count
-#define HOPLIFETIME 300
+#define HOPLIFETIME 5
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 	char *dev;			// The device to sniff on 
 	char errbuf[PCAP_ERRBUF_SIZE];	// Error string 
 	struct bpf_program fp;		//The compiled filter 
-	// char filter_exp[] = "";	// The filter expression
+	char filter_exp[] = "dst 192.168.1.101";	// The filter expression
 	bpf_u_int32 mask;		// Our netmask
 	bpf_u_int32 net;		// Our IP
 	struct pcap_pkthdr header;	// The header that pcap gives us
@@ -86,11 +86,10 @@ int main(int argc, char *argv[]) {
 
 	//private ip for NAT
 	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	char* natIP = "10.4.11.192";
+	char* natIP = "192.168.1.1";
 	// Establish connection with NAT
 	// Constructing the server address struct
-	struct sockaddr_in servAddr; // server address
-	memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
+	struct sockaddr_in servAddr; // server address	memset(&servAddr, 0, sizeof(servAddr)); // Zero out structure
 	servAddr.sin_family = AF_INET;// IPv4 address family
 	// Convert address
 	int rtnVal = inet_pton(AF_INET, natIP, &servAddr.sin_addr.s_addr);
@@ -100,7 +99,7 @@ int main(int argc, char *argv[]) {
 	else if (rtnVal < 0){
 		DieWithSystemMessage("inet_pton() failed");
 	}
-	in_port_t servPort = 5002;
+	in_port_t servPort = atoi(argv[1]);
 	servAddr.sin_port = htons(servPort); //Local port
 
 	// Establish the connection to the NAT
@@ -128,7 +127,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Couldn't open device %s: %s\n", dev, errbuf);
 		return(2);
 	}
-	/*
+	
 	// Compile and apply the filter 
 	if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
 		fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
@@ -138,7 +137,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
 		return(2);
 	}
-	*/
+	
 	// Grab a packet until error occurs //
 	// get starting time stamp
 	gettimeofday(&initial, NULL);
@@ -160,6 +159,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		if (elapsed >= HOPLIFETIME){
 			fp = fopen("hopsByIP.txt","w");
 			gettimeofday(&initial, NULL);
+			printf("creating new file");
 		}
 		else{
 			fp = fopen("hopsByIP.txt","a+");
@@ -196,12 +196,13 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		printf("ttl on incomming packet is %d\n", (int)(ip->ip_ttl));
 
 		if ((int)(ip->ip_ttl) <= getHops + hopEQ && (int)(ip->ip_ttl) >= getHops - hopEQ){
-			printf("ttl difference is okay for %s\n",inet_ntoa(ip->ip_src));
+			//printf("ttl difference is okay for %s\n",inet_ntoa(ip->ip_src));
 		}
 		// blacklist this ip , add SERVER NAT communication for blacklist
 		else{
 			printf("BLACKLIST %s\n",inet_ntoa(ip->ip_src));
-			char banCommand[20]; 
+			char banCommand[25];
+			memset(banCommand,'\0',25); 
 			strcat(banCommand,"BAN;");
 			strcat(banCommand, inet_ntoa(ip->ip_src));
 			ssize_t banLength = strlen(banCommand);

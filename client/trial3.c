@@ -4,44 +4,48 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <curl/curl.h>
+#include <unistd.h>
 
 #include "include/nice_client.h"
 #include "include/dnsutils.h"
 #include "include/port_scanner.h"
 
 
-#define NUM_ISPS (3)
+#define NUM_ISPS (2)
 #define CLIENTS_PER_ISP (3)
 #define HOST ((unsigned char*)"natdaemon.com")
 #define DNS "10.4.11.193"
 #define NUM_ATTEMPTS 100
 
+#define IP_SPACE_START "10.4.11.195"
+#define IP_SPACE_END "10.4.11.254"
+
 void run_trial( void );
+
 const char* resolver_ips[NUM_ISPS] = 
-{ "10.4.11.65", "10.4.11.129", "10.4.11.9" };
+{ "10.4.11.65", "10.4.11.129" };
 const char* client_ips[NUM_ISPS][CLIENTS_PER_ISP] = {
 	{"10.4.11.66", "10.4.11.67","10.4.11.68" },
 	{"10.4.11.130", "10.4.11.131","10.4.11.132" },
-	{"10.4.11.10", "10.4.11.11","10.4.11.12" },
 };
 pthread_t threads[NUM_ISPS][CLIENTS_PER_ISP];
 struct client_in args[NUM_ISPS][CLIENTS_PER_ISP];
 struct DNS_RESOLVER* res_list[NUM_ISPS];
-pthread_t pscan_thread;
-struct pscan_in scanner_attr;
+	pthread_t pscan_thread;
+	struct pscan_in scanner_attr;
 
 int main( int argc, char** argv ) {
 	curl_global_init( CURL_GLOBAL_NOTHING );
-
 	for( int trial = 0; trial < 10; trial++ ) {
 		run_trial();
 		sleep( 5 );
-
 	}
+
 	curl_global_cleanup();
+
 }
+
 void run_trial( void ) {
 	//Setup resolvers
 	int i,j;
@@ -66,8 +70,8 @@ void run_trial( void ) {
 	}
 	sleep( 1 );
 
-	inet_aton( "10.4.11.195", &(scanner_attr.start) );
-	inet_aton( "10.4.11.254", &(scanner_attr.stop) );
+	inet_aton( IP_SPACE_START , &(scanner_attr.start) );
+	inet_aton( IP_SPACE_END, &(scanner_attr.stop) );
 	scanner_attr.nport = htons( 80 );
 	inet_aton( "10.4.11.13", &(scanner_attr.srcip ) );
 	pthread_create( &pscan_thread, NULL, &spawn_pscan, &scanner_attr );
@@ -97,14 +101,16 @@ void run_trial( void ) {
 	printf( "\tAverage Error rate: %f\n", (1.0 * errs_sum ) / (NUM_ISPS * CLIENTS_PER_ISP * NUM_ATTEMPTS ));
 	printf( "\tHighest error rate: %f\n", (1.0 * errs_max ) / (NUM_ATTEMPTS ));
 
-	struct pscan_out* pret = NULL;
-	pthread_join( pscan_thread, (void**)&pret );
-	printf( "\tfound %d addresses\n", pret->n_found );
-
 	// wait for threads to finish
 	for( i = 0; i < NUM_ISPS; i++ ) {
 		dns_cleanup( res_list[i] );
 	}
+
+
+	struct pscan_out* pret = NULL;
+	pthread_join( pscan_thread, (void**)&pret );
+	printf( "\tfound %d\n", pret->n_found );
+
 	free( pret->found );
 	free( pret );
 	// vomit data
