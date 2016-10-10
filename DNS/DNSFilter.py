@@ -2,6 +2,7 @@ from netfilterqueue import NetfilterQueue
 from scapy.all import *
 from socket import *
 import sys, logging
+import time
 
 s = socket(AF_INET, SOCK_STREAM)
 
@@ -15,13 +16,12 @@ def exit(s):
 def NAT_update(ip):
     s.send('ADD;{}'.format(ip))
     ack = s.recv(25)
-
     ipback = ack.strip().rstrip('\x00').split(';')
-    print ipback
 
     return (ipback[1],int(ipback[2]))
 
 def handle_dns(pkt):
+    #print( "handle_packet at {}".format( time.time() ) )
 
     ip = IP()
     udp = UDP()
@@ -33,9 +33,9 @@ def handle_dns(pkt):
     print "SRC " + ip.src
     print "DST " + ip.dst
 
-    logging.info('NAT ADD sent')    
+    logging.info('ADD')    
     natreply = NAT_update(pkt[IP].dst)
-    logging.info('NAT ACK received')
+    logging.info('ACK, TTL = {}'.format(natreply[1]))
 
     qd = pkt[UDP].payload
     dns = DNS(id = qd.id, qr = 1, qdcount = 1, ancount = 1, nscount = 1, rcode = 0)
@@ -50,14 +50,15 @@ def handle_packet(packet):
 
     pkt = IP(data)
     proto = pkt.proto
+    packet.drop()
 
     if proto is 0x11 and pkt[IP].src != '127.0.0.1':
-        print "UDP PACKET"
+        #print "UDP PACKET"
         if pkt[UDP].sport is 53:
-            print "DNS ANSWER"
+            #print "DNS ANSWER"
             dns = handle_dns(pkt)
-    else:
-    	packet.accept()
+            #print( "exiting at {}".format( time.time() ) )
+    
 
 def main(argv):
 
@@ -83,9 +84,9 @@ def main(argv):
     nfqueue.bind(qnum, handle_packet)
 
     FORMAT = '%(asctime)-15s %(message)s'
-    logging.basicConfig(filename='times.log', level=logging.DEBUG, format=FORMAT)
-    logging.info("NEW TRIAL")
-
+    logging.basicConfig(filename='times.csv', level=0, format=FORMAT)
+    logging.info("===== NEW TRIAL =====")
+    
     try:
 	print 'RUNNING QUEUE'
         nfqueue.run()
