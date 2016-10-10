@@ -2,7 +2,6 @@
 #define __LINKEDLIST_H__
 
 typedef struct Node {
-    struct Node *prev;
     void *elm;
     struct Node *next;
 } Node;

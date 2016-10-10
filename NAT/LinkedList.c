@@ -38,7 +38,6 @@ void insertElement(LinkedList *list, void *newElement) {
     Node *node = malloc(sizeof(Node));
 
     // Initialize the element
-    node->prev = NULL;
     node->elm = newElement;
     node->next = NULL;
 
@@ -46,14 +45,11 @@ void insertElement(LinkedList *list, void *newElement) {
         // List is empty
         list->head = node;
         list->tail = node;
-        node->next = node;
-        node->prev = node;
+        node->next = NULL;
     } else {
         // Add to end of list
-        node->prev = list->tail;
-        node->next = list->head;
+        node->next = NULL;
         list->tail->next = node;
-        list->head->prev = node;
         list->tail = node;
     }
 
@@ -79,8 +75,7 @@ void* removeElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *e
     while(head != NULL) {
         if(cmp(elm1, head) == 0) {
             // Adjust the previous and next links to skip the found element
-            head->prev->next = head->next;
-            head->next->prev = head->prev;
+            list->head = head->next;
 
             // Store of the address of the value in the element to be returned
             foundElm = head->elm;
@@ -125,9 +120,6 @@ void* popElement(LinkedList *list) {
         return elm;
     } else {
         list->head = head->next;
-        if(head->next != NULL)
-            head->next->prev = list->tail;
-        list->tail->prev = head->next;
         list->size -= 1;
 
         void *elm = head->elm;
@@ -152,17 +144,15 @@ void* findElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *elm
     // Get the head of the list
     Node *head = list->head;
     void *foundElm = NULL;
-    int i = list->size;
 
     // Iterate through the list
-    while(head != NULL && i != 0) {
+    while(head != NULL) {
         if(cmp(elm1, head->elm) == 0) {
             foundElm = head->elm;
             break;
         }
         
         head = head->next;
-        i--;
     }
 
     // Return the found element address or null if no match
@@ -181,14 +171,11 @@ void* findElement(LinkedList *list, void *elm1, int (*cmp)(void *elm1, void *elm
 void printList(LinkedList *list, void(*printElm)(void *elm)) {
     // Get the head of the list
     Node *head = list->head;
-    int i = list->size;
 
     // Iterate through the list
-    while(head != NULL && i != 0) {
+    while(head != NULL) {
         printElm(head->elm);      
         head = head->next;
-
-        i--;
     }
 }
 

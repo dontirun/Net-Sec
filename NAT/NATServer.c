@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
     data->list = mappingList;
     data->expirationTime = getExpirationTimeMap;
     data->expirationAction = handleExpiredMap;
-    
+    data->listLock = mappingListLock;
     int responseCode = pthread_create(mappingCleaner, NULL, removeExpiredMappings, data);
     if(responseCode) {
         printf("Error - Cannot create thread to remove mappings, Code: %d\n", responseCode);
@@ -105,6 +105,7 @@ int main(int argc, char **argv) {
     data->list = bannedList;
     data->expirationTime = getExpirationTimeMap;
     data->expirationAction = handleExpiredBan;
+    data->listLock = bannedListLock;
     responseCode = pthread_create(banRemover, NULL, removeExpiredMappings, data);
     if(responseCode) {
         printf("Error - Cannot create thread to remove bans, Code: %d\n", responseCode);
@@ -544,8 +545,10 @@ SuccessMapping* manipulateMapping(char *ip) {
     pthread_mutex_lock(&mappingListLock);
     Mapping *match = findElement(mappingList, searchMap, cmpMaps);
     pthread_mutex_unlock(&mappingListLock);
-    
+
     if(match != NULL) {
+    printf("Match ISP Prefix: %s, IP: %s, Time: %d\n", match->ispPrefix, match->publicIP, match->time);   
+
 	// Check for non-expired mappings
         time(&timeNow);   
         if(timeNow - match->time < EXPIRATIONTIMESECONDS) {
@@ -645,7 +648,9 @@ void* removeExpiredMappings(void *data) {
         }
         
         // Remove the mapping from the list
+	pthread_mutex_lock(&(cld->listLock));
         void *elm = popElement(cld->list);
+	pthread_mutex_unlock(&(cld->listLock));
 
         // Run the expiration action
         cld->expirationAction(elm);
