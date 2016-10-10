@@ -121,7 +121,7 @@ void* spawn_pscan( void* arg ) {
 		pthread_join( threads[i-low], (void**)&retcode );
 		if( *retcode == 0 ) {
 			hits[c_found].s_addr = ntohl( i );
-			printf( "\tFound address %s\n", inet_ntoa( hits[c_found] ) );
+			//printf( "\tFound address %s\n", inet_ntoa( hits[c_found] ) );
 			c_found++;
 		}
 		free( retcode );

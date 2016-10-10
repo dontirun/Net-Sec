@@ -1,0 +1,4 @@
+Trial Summary:
+	Average rtt: 1773
+	Max rtt: 20548
+	Average Error rate: 0%

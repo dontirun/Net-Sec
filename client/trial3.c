@@ -16,7 +16,7 @@
 #define CLIENTS_PER_ISP (3)
 #define HOST ((unsigned char*)"natdaemon.com")
 #define DNS "10.4.11.193"
-#define NUM_ATTEMPTS 100
+#define NUM_ATTEMPTS 5
 
 #define IP_SPACE_START "10.4.11.195"
 #define IP_SPACE_END "10.4.11.254"
@@ -37,9 +37,9 @@ struct DNS_RESOLVER* res_list[NUM_ISPS];
 
 int main( int argc, char** argv ) {
 	curl_global_init( CURL_GLOBAL_NOTHING );
-	for( int trial = 0; trial < 10; trial++ ) {
+	for( int trial = 0; trial < 100; trial++ ) {
 		run_trial();
-		sleep( 5 );
+		sleep( 1 );
 	}
 
 	curl_global_cleanup();

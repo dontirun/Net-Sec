@@ -80,9 +80,10 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    for(i = 0; i < 10; i++) {
+    for(i = 0; i < 20; i++) {
 
 	printf("%d\n", i);
+	sleep(1);
 
 	// Construct the GET Request (Test Remove #TODO)
 	char *NATRequest;

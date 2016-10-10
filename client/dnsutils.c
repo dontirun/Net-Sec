@@ -299,6 +299,9 @@ struct in_addr resolve( struct DNS_RESOLVER* res, const unsigned char* hostname 
 			return ret;
 		}
 	}
+	struct timespec t_start;
+	struct timespec t_end;
+	clock_gettime( CLOCK_MONOTONIC, &t_start );
 	// Nothing in the cache, query and add to cache
 	struct RES_RECORD* resp = query_dns( res, hostname, T_A );
 	if( resp == NULL ) {
@@ -306,6 +309,7 @@ struct in_addr resolve( struct DNS_RESOLVER* res, const unsigned char* hostname 
 		ret.s_addr = -1;
 		return ret;
 	}
+	clock_gettime( CLOCK_MONOTONIC, &t_end );
 
 	struct DNS_TABLE_ENTRY* new = malloc( sizeof *new );
 

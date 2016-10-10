@@ -1,1 +1,1 @@
-sudo iptables-restore iptable.conf
+sudo iptables-restore iptable2.conf

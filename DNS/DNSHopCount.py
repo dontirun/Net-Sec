@@ -6,6 +6,7 @@ import sys, logging
 
 s = socket(AF_INET, SOCK_STREAM)
 hops = {}
+banned = {}
 # I asked Jesse if he trusted my code, he did, so it should work at some point
 
 def exit(s):
@@ -23,10 +24,8 @@ def NAT_update(ip):
 
     return (ipback[1],int(ipback[2]))
 
-
-unban = {}
 def handle_dns(pkt):    
-print pkt[IP].ttl
+    print pkt[IP].ttl
     print pkt[IP].src
     src = pkt[IP].src
     hop_curr = pkt[IP].ttl
@@ -66,10 +65,8 @@ def handle_packet(packet):
 
             if dns == True:
                 packet.accept()
-            else:
-                packet.drop()
         else:
-            packet.accept()
+            packet.drop()
     else:
     	packet.accept()
 

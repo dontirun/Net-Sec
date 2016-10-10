@@ -25,9 +25,9 @@ int send_all(char *message, int messageSize, int socket);
 
 // Global Variables
 volatile sig_atomic_t quit = 0;
-pthread_mutex_t mappingListLock;
+pthread_mutex_t mappingListLock = PTHREAD_MUTEX_INITIALIZER;
 LinkedList *mappingList;
-pthread_mutex_t bannedListLock;
+pthread_mutex_t bannedListLock = PTHREAD_MUTEX_INITIALIZER;
 LinkedList *bannedList;
 
 /**
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
     data->list = mappingList;
     data->expirationTime = getExpirationTimeMap;
     data->expirationAction = handleExpiredMap;
-    
+    data->listLock = mappingListLock;
     int responseCode = pthread_create(mappingCleaner, NULL, removeExpiredMappings, data);
     if(responseCode) {
         printf("Error - Cannot create thread to remove mappings, Code: %d\n", responseCode);
@@ -105,6 +105,7 @@ int main(int argc, char **argv) {
     data->list = bannedList;
     data->expirationTime = getExpirationTimeMap;
     data->expirationAction = handleExpiredBan;
+    data->listLock = bannedListLock;
     responseCode = pthread_create(banRemover, NULL, removeExpiredMappings, data);
     if(responseCode) {
         printf("Error - Cannot create thread to remove bans, Code: %d\n", responseCode);
@@ -285,11 +286,9 @@ int cmpMaps(void* elm1, void *elm2) {
         numFields++;
     }
 
-    if(map1->time != 0) {
-        timeCompare = map1->time - map2->time;
-        numMatchedFields += timeCompare == 0 ? 1 : 0;
-        numFields++;
-    }
+    timeCompare = map2->time - map1->time;
+    numMatchedFields += timeCompare >= 0;
+    numFields++;
 
     if(numMatchedFields == numFields)
         return 0;
@@ -403,18 +402,7 @@ void* handleClientConnections(void* socket) {
         request->message = messagePtr;
         request->socket = cliSock;
         
-        // Create thread to handle request
-        pthread_t *thread = malloc(sizeof(pthread_t));
-        int response = pthread_create(thread, NULL, handleRequest, (void *)request);
-        if(response) {
-            printf("Error creating thread, Request %s, Code: %d\n", messagePtr, response);
-            // Handle error so request will be finished in some way
-            continue;
-        }
-                
-        // Detach thread
-        pthread_detach(*thread);
-	free(thread);
+	handleRequest(request);
     }
 
     // Close Socket
@@ -444,7 +432,7 @@ void* handleRequest(void *request) {
     int cliSock = ((Request *) request)->socket;
     
     if(strlen(message) <= 0) {
-        pthread_exit(0);
+        return NULL;
     }
     
     // Retrive the Command and the IP from the request
@@ -456,13 +444,12 @@ void* handleRequest(void *request) {
 	if(message != NULL)
 	    free(message);
 
-        pthread_exit(0);
     } else if(command == NULL || strlen(command) < 3 || strlen(command) > 3) {
         free(request);
 	if(message != NULL)
 	    free(message);
 
-        pthread_exit(0);
+	return NULL;
     }
 
     printf("Command: %s, IP: %s\n", command, ip);
@@ -513,7 +500,7 @@ void* handleRequest(void *request) {
         free(mappedIP); 
 
     // Destroy request thread
-    pthread_exit(0);
+    return NULL;
 }
 
 /**
@@ -539,15 +526,16 @@ SuccessMapping* manipulateMapping(char *ip) {
     Mapping *searchMap = malloc(sizeof(Mapping));
     searchMap->ispPrefix = ispPrefix;
     searchMap->publicIP = NULL;
-    searchMap->time = 0;
+    time(&timeNow);
+    searchMap->time = timeNow - EXPIRATIONTIMESECONDS;
 
     pthread_mutex_lock(&mappingListLock);
     Mapping *match = findElement(mappingList, searchMap, cmpMaps);
     pthread_mutex_unlock(&mappingListLock);
-    
+
     if(match != NULL) {
 	// Check for non-expired mappings
-        time(&timeNow);   
+        time(&timeNow); 
         if(timeNow - match->time < EXPIRATIONTIMESECONDS) {
             SuccessMapping *map = malloc(sizeof(SuccessMapping));
             map->mappedIP = strdup(match->publicIP);
@@ -600,12 +588,12 @@ SuccessMapping* manipulateMapping(char *ip) {
     map->time = timeNow;
     map->ispPrefix = strdup(ispPrefix);
     map->publicIP = strdup(publicIP);
-    
+
     // Lock the list and insert the mapping into the list
     pthread_mutex_lock(&mappingListLock);
     insertElement(mappingList, map);
     pthread_mutex_unlock(&mappingListLock);
-
+    
     SuccessMapping *sm = malloc(sizeof(SuccessMapping));
     sm->mappedIP = publicIP;
     sm->mapTTL = EXPIRATIONTIMESECONDS;
@@ -645,7 +633,9 @@ void* removeExpiredMappings(void *data) {
         }
         
         // Remove the mapping from the list
-        void *elm = popElement(cld->list);
+	pthread_mutex_lock(&(cld->listLock));
+	void *elm = popElement(cld->list);
+	pthread_mutex_unlock(&(cld->listLock));
 
         // Run the expiration action
         cld->expirationAction(elm);

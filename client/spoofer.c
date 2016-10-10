@@ -14,7 +14,7 @@
 #include "include/dnsutils.h"
 
 
-int send_packet( uint32_t src, uint32_t dest, uint8_t ttl_high, uint8_t ttl_low, const char* data, uint16_t len_data );
+int send_spoofed_packet( uint32_t src, uint32_t dest, uint8_t ttl_high, uint8_t ttl_low, const char* data, uint16_t len_data );
 int send_udp_packet( uint32_t src, uint32_t dest, uint8_t ttl_high, uint8_t ttl_low, const char* data, uint16_t len_data );
 
 void* spawn_spoofer( void* args ) {
@@ -30,7 +30,7 @@ void* spawn_spoofer( void* args ) {
 	uint16_t len = strlen( message );
 	for( i = 0; i < in->n_packets; i++ ) {
 		//send_udp_packet( src, dest, in->ttl_high, in->ttl_low, message, len );
-		send_packet( src, dest, in->ttl_high, in->ttl_low, message, len );
+		send_spoofed_packet( src, dest, in->ttl_high, in->ttl_low, message, len );
 	}
 	return NULL;
 }
@@ -139,7 +139,7 @@ fail1:
 
 }
 
-int send_packet( uint32_t src, uint32_t dest, uint8_t ttl_high, uint8_t ttl_low, const char* data, uint16_t len_data ) {
+int send_spoofed_packet( uint32_t src, uint32_t dest, uint8_t ttl_high, uint8_t ttl_low, const char* data, uint16_t len_data ) {
 	uint8_t ttl = rand() % ( ttl_high - ttl_low + 1 ) + ttl_low;
 	uint8_t* ip_header = build_ip_header( src, dest, ttl, len_data );
 	uint8_t* tcp_header = build_tcp_header( data, len_data );

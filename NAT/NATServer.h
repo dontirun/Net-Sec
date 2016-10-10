@@ -59,6 +59,7 @@ typedef struct {
     LinkedList *list;
     time_t (*expirationTime)(void *elm);
     void (*expirationAction)(void *elm);
+    pthread_mutex_t listLock;
 } CleanerData;
 
 typedef struct {
